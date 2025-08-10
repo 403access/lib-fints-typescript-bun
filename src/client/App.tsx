@@ -6,102 +6,28 @@
 // This component expects a backend endpoint at `/api/fints` (see the example
 // route handler further below). Adjust `API_URL` if needed.
 
-import React, { useMemo, useState } from "react";
-
-// ------------------------------
-// Types shared with the backend
-// ------------------------------
-
-type BankAnswer = { code: string; text: string };
-
-type TanMediaRequirement = "NotRequired" | "Optional" | "Required"; // simplified
-
-type TanMethod = {
-    id: number;
-    name: string;
-    version: number;
-    activeTanMediaCount: number;
-    activeTanMedia: string[];
-    tanMediaRequirement: TanMediaRequirement;
-};
-
-type BankingInformation = {
-    systemId: string;
-    bpd?: {
-        availableTanMethodIds: number[];
-        tanMethods?: Record<number, TanMethod>; // optional map for convenience
-    };
-    upd?: {
-        bankAccounts: Array<{
-            accountNumber: string;
-            iban?: string;
-            bic?: string;
-            currency?: string;
-            productName?: string;
-        }>;
-    };
-    bankMessages: Array<{ subject?: string; text: string }>;
-};
-
-type FinTSResponse<T = unknown> = {
-    success: boolean;
-    requiresTan?: boolean;
-    tanChallenge?: string;
-    tanReference?: string;
-    bankAnswers?: BankAnswer[];
-    bankingInformationUpdated?: boolean;
-    data?: T;
-};
-
-type BalanceData = {
-    accountNumber: string;
-    bookedBalance: { amount: number; currency: string };
-    availableBalance?: { amount: number; currency: string };
-};
-
-type StatementEntry = {
-    bookingDate: string; // ISO date
-    valutaDate?: string; // ISO date
-    amount: { amount: number; currency: string };
-    text?: string;
-    counterpart?: string;
-    reference?: string;
-};
-
-type StatementsData = {
-    accountNumber: string;
-    entries: StatementEntry[];
-};
-
-// ------------------------------
-// Minimal API client
-// ------------------------------
-
-const API_URL = "/api/fints"; // change if needed
-
-async function api<T>(body: Record<string, unknown>): Promise<T> {
-    const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        credentials: "include",
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()) as T;
-}
-
-// ------------------------------
-// The Wizard Component
-// ------------------------------
+import { useMemo, useState } from "react";
+import { AccountOperations } from "./components/AccountOperations";
+import { BankMessages } from "./components/BankMessages";
+import { CredentialsForm } from "./components/CredentialsForm";
+import { Section } from "./components/Section";
+import { TanChallenge } from "./components/TanChallenge";
+import { TanSelection } from "./components/TanSelection";
+import { useFinTSActions } from "./hooks/useFinTSActions";
+import type {
+    BalanceData,
+    BankingInformation,
+    FinTSForm,
+    StatementsData,
+} from "./types/fints";
 
 export default function FinTSWizard() {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
-
-    // session is maintained via cookie by the backend; no explicit id required
+    const actions = useFinTSActions();
 
     // Step 1: credentials & product details
-    const [form, setForm] = useState({
+    const [form, setForm] = useState<FinTSForm>({
         productId: "com.example.myproduct", // register at DK/FinTS
         productVersion: "1.0.0",
         bankUrl: "https://banking-bw4.s-fints-pt-bw.de/fints30",
@@ -147,10 +73,7 @@ export default function FinTSWizard() {
     const [statements, setStatements] = useState<StatementsData | null>(null);
 
     // Utilities
-    function onChange<K extends keyof typeof form>(
-        key: K,
-        value: (typeof form)[K],
-    ) {
+    function onChange<K extends keyof FinTSForm>(key: K, value: FinTSForm[K]) {
         setForm((f) => ({ ...f, [key]: value }));
     }
 
@@ -161,17 +84,22 @@ export default function FinTSWizard() {
         setPendingOp(null);
     }
 
+    function resetAll() {
+        setBankingInformation(null);
+        setBalance(null);
+        setStatements(null);
+        resetTan();
+    }
+
     // Actions
     async function startSession() {
         setError(null);
         setBusy(true);
         try {
-            const res = await api<{
-                bankingInformation: BankingInformation | null;
-            }>({ action: "startSession", payload: form });
-            setBankingInformation(res.bankingInformation);
-        } catch (e: any) {
-            setError(e.message || String(e));
+            const bankingInfo = await actions.startSession(form);
+            setBankingInformation(bankingInfo);
+        } catch (e: unknown) {
+            setError(e instanceof Error ? e.message : String(e));
         } finally {
             setBusy(false);
         }
@@ -182,19 +110,13 @@ export default function FinTSWizard() {
         setError(null);
         setBusy(true);
         try {
-            const res = await api<
-                { bankingInformation: BankingInformation } | { error: string }
-            >({
-                action: "selectTan",
-                payload: {
-                    tanMethodId: selectedTanMethodId,
-                    tanMediaName: selectedTanMedia || undefined,
-                },
-            });
-            if ("error" in res) throw new Error(res.error);
-            setBankingInformation(res.bankingInformation);
-        } catch (e: any) {
-            setError(e.message || String(e));
+            const bankingInfo = await actions.selectTan(
+                selectedTanMethodId,
+                selectedTanMedia || undefined,
+            );
+            setBankingInformation(bankingInfo);
+        } catch (e: unknown) {
+            setError(e instanceof Error ? e.message : String(e));
         } finally {
             setBusy(false);
         }
@@ -205,11 +127,7 @@ export default function FinTSWizard() {
         setBusy(true);
         resetTan();
         try {
-            const res = await api<
-                FinTSResponse<{ bankingInformation: BankingInformation }>
-            >({
-                action: "synchronize",
-            });
+            const res = await actions.synchronize();
             if (res.requiresTan) {
                 setTanChallenge(res.tanChallenge || "TAN required");
                 setTanReference(res.tanReference || null);
@@ -218,8 +136,8 @@ export default function FinTSWizard() {
             if (res.success && res.data) {
                 setBankingInformation(res.data.bankingInformation);
             }
-        } catch (e: any) {
-            setError(e.message || String(e));
+        } catch (e: unknown) {
+            setError(e instanceof Error ? e.message : String(e));
         } finally {
             setBusy(false);
         }
@@ -232,18 +150,15 @@ export default function FinTSWizard() {
         setBusy(true);
         resetTan();
         try {
-            const res = await api<FinTSResponse<BalanceData>>({
-                action: "getAccountBalance",
-                payload: { accountNumber: account.accountNumber },
-            });
+            const res = await actions.getAccountBalance(account.accountNumber);
             if (res.requiresTan) {
                 setTanChallenge(res.tanChallenge || "TAN required");
                 setTanReference(res.tanReference || null);
                 setPendingOp("balance");
             }
             if (res.success && res.data) setBalance(res.data);
-        } catch (e: any) {
-            setError(e.message || String(e));
+        } catch (e: unknown) {
+            setError(e instanceof Error ? e.message : String(e));
         } finally {
             setBusy(false);
         }
@@ -256,18 +171,15 @@ export default function FinTSWizard() {
         setBusy(true);
         resetTan();
         try {
-            const res = await api<FinTSResponse<StatementsData>>({
-                action: "getAccountStatements",
-                payload: { accountNumber: account.accountNumber },
-            });
+            const res = await actions.getAccountStatements(account.accountNumber);
             if (res.requiresTan) {
                 setTanChallenge(res.tanChallenge || "TAN required");
                 setTanReference(res.tanReference || null);
                 setPendingOp("statements");
             }
             if (res.success && res.data) setStatements(res.data);
-        } catch (e: any) {
-            setError(e.message || String(e));
+        } catch (e: unknown) {
+            setError(e instanceof Error ? e.message : String(e));
         } finally {
             setBusy(false);
         }
@@ -278,60 +190,25 @@ export default function FinTSWizard() {
         setBusy(true);
         setError(null);
         try {
-            const res = await api<FinTSResponse<any>>({
-                action: "submitTan",
-                payload: { op: pendingOp, tanReference, tan: tanInput },
-            });
+            const res = await actions.submitTan(pendingOp, tanReference, tanInput);
             if (!res.success)
                 throw new Error(
                     res.bankAnswers?.map((b) => b.text).join("\n") || "TAN failed",
                 );
-            if (pendingOp === "sync" && res.data?.bankingInformation) {
-                setBankingInformation(res.data.bankingInformation);
+            if (pendingOp === "sync" && res.data && typeof res.data === "object" && "bankingInformation" in res.data) {
+                setBankingInformation(res.data.bankingInformation as BankingInformation);
             } else if (pendingOp === "balance" && res.data) {
                 setBalance(res.data as BalanceData);
             } else if (pendingOp === "statements" && res.data) {
                 setStatements(res.data as StatementsData);
             }
             resetTan();
-        } catch (e: any) {
-            setError(e.message || String(e));
+        } catch (e: unknown) {
+            setError(e instanceof Error ? e.message : String(e));
         } finally {
             setBusy(false);
         }
     }
-
-    // UI helpers
-    function Section({
-        title,
-        children,
-        right,
-    }: {
-        title: string;
-        children: React.ReactNode;
-        right?: React.ReactNode;
-    }) {
-        return (
-            <div className="bg-white/70 backdrop-blur rounded-2xl shadow p-5 border border-slate-200">
-                <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-lg font-semibold text-slate-800">{title}</h2>
-                    {right}
-                </div>
-                {children}
-            </div>
-        );
-    }
-
-    const accounts = bankingInformation?.upd?.bankAccounts ?? [];
-    const tanMethodOptions = useMemo(() => {
-        const ids = bankingInformation?.bpd?.availableTanMethodIds || [];
-        const map = bankingInformation?.bpd?.tanMethods || {};
-        return ids.map((id) => ({
-            id,
-            name: map[id]?.name || `Method ${id}`,
-            method: map[id],
-        }));
-    }, [bankingInformation]);
 
     return (
         <div className="mx-auto max-w-5xl p-6 space-y-6">
@@ -349,85 +226,14 @@ export default function FinTSWizard() {
             )}
 
             <Section title="1) Product & Banking Credentials">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <label className="flex flex-col gap-1 text-sm">
-                        <span className="text-slate-600">Product ID</span>
-                        <input
-                            className="input input-bordered rounded-xl border-slate-300 px-3 py-2"
-                            value={form.productId}
-                            onChange={(e) => onChange("productId", e.target.value)}
-                            placeholder="e.g. com.mycompany.myapp"
-                        />
-                    </label>
-                    <label className="flex flex-col gap-1 text-sm">
-                        <span className="text-slate-600">Product Version</span>
-                        <input
-                            className="input input-bordered rounded-xl border-slate-300 px-3 py-2"
-                            value={form.productVersion}
-                            onChange={(e) => onChange("productVersion", e.target.value)}
-                            placeholder="1.0.0"
-                        />
-                    </label>
-                    <label className="flex flex-col gap-1 text-sm md:col-span-2">
-                        <span className="text-slate-600">Bank FinTS URL</span>
-                        <input
-                            className="input input-bordered rounded-xl border-slate-300 px-3 py-2"
-                            value={form.bankUrl}
-                            onChange={(e) => onChange("bankUrl", e.target.value)}
-                            placeholder="https://.../fints30"
-                        />
-                    </label>
-                    <label className="flex flex-col gap-1 text-sm">
-                        <span className="text-slate-600">Bank ID (BLZ)</span>
-                        <input
-                            className="input input-bordered rounded-xl border-slate-300 px-3 py-2"
-                            value={form.bankId}
-                            onChange={(e) => onChange("bankId", e.target.value)}
-                            placeholder="e.g. 12030000"
-                        />
-                    </label>
-                    <label className="flex flex-col gap-1 text-sm">
-                        <span className="text-slate-600">User ID</span>
-                        <input
-                            className="input input-bordered rounded-xl border-slate-300 px-3 py-2"
-                            value={form.userId}
-                            onChange={(e) => onChange("userId", e.target.value)}
-                            placeholder="Online-Banking login"
-                        />
-                    </label>
-                    <label className="flex flex-col gap-1 text-sm">
-                        <span className="text-slate-600">PIN</span>
-                        <input
-                            type="password"
-                            className="input input-bordered rounded-xl border-slate-300 px-3 py-2"
-                            value={form.pin}
-                            onChange={(e) => onChange("pin", e.target.value)}
-                            placeholder="••••••"
-                        />
-                    </label>
-                </div>
-                <div className="mt-4 flex flex-wrap gap-3">
-                    <button
-                        type="button"
-                        className="rounded-xl bg-slate-900 text-white px-4 py-2 disabled:opacity-50"
-                        disabled={!canStart || busy}
-                        onClick={startSession}
-                    >
-                        {busy ? "Working…" : "Start Session"}
-                    </button>
-                    <button
-                        type="button"
-                        className="rounded-xl border border-slate-300 px-4 py-2"
-                        onClick={() => {
-                            setBankingInformation(null);
-                            setBalance(null);
-                            setStatements(null);
-                            resetTan();
-                        }}
-                    >
-                        Reset
-                    </button>
-                </div>
+                <CredentialsForm
+                    form={form}
+                    canStart={canStart}
+                    busy={busy}
+                    onChange={onChange}
+                    onStartSession={startSession}
+                    onReset={resetAll}
+                />
             </Section>
 
             <Section
@@ -445,140 +251,26 @@ export default function FinTSWizard() {
             >
                 {bankingInformation ? (
                     <div className="space-y-4">
-                        <div className="text-sm text-slate-600">
-                            <div className="font-medium">System ID:</div>
-                            <div className="font-mono">{bankingInformation.systemId}</div>
-                        </div>
+                        <TanSelection
+                            bankingInformation={bankingInformation}
+                            selectedTanMethodId={selectedTanMethodId}
+                            selectedTanMedia={selectedTanMedia}
+                            busy={busy}
+                            onTanMethodChange={setSelectedTanMethodId}
+                            onTanMediaChange={setSelectedTanMedia}
+                            onSelectTan={selectTan}
+                        />
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-                            <label className="flex flex-col gap-1 text-sm">
-                                <span className="text-slate-600">TAN Method</span>
-                                <select
-                                    className="rounded-xl border border-slate-300 px-3 py-2"
-                                    value={selectedTanMethodId ?? ""}
-                                    onChange={(e) =>
-                                        setSelectedTanMethodId(Number(e.target.value))
-                                    }
-                                >
-                                    <option value="" disabled>
-                                        Select a method
-                                    </option>
-                                    {tanMethodOptions.map(({ id, name }) => (
-                                        <option key={id} value={id}>
-                                            {name} (#{id})
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-                            <label className="flex flex-col gap-1 text-sm md:col-span-2">
-                                <span className="text-slate-600">TAN Media (if required)</span>
-                                <input
-                                    className="rounded-xl border border-slate-300 px-3 py-2"
-                                    value={selectedTanMedia}
-                                    onChange={(e) => setSelectedTanMedia(e.target.value)}
-                                    placeholder="e.g. My iPhone"
-                                />
-                            </label>
-                            <button
-                                type="button"
-                                className="rounded-xl bg-slate-900 text-white px-4 py-2"
-                                onClick={selectTan}
-                                disabled={busy || !selectedTanMethodId}
-                            >
-                                Apply TAN Settings
-                            </button>
-                        </div>
-
-                        {accounts.length > 0 ? (
-                            <div className="space-y-3">
-                                <div className="flex flex-wrap items-center gap-3">
-                                    <label htmlFor="account-select" className="text-sm text-slate-600">Account:</label>
-                                    <select
-                                        id="account-select"
-                                        className="rounded-xl border border-slate-300 px-3 py-2"
-                                        value={accountIdx}
-                                        onChange={(e) => setAccountIdx(Number(e.target.value))}
-                                    >
-                                        {accounts.map((a, i) => (
-                                            <option key={a.accountNumber} value={i}>
-                                                {a.iban || a.accountNumber}{" "}
-                                                {a.currency ? `(${a.currency})` : ""}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <button
-                                        type="button"
-                                        className="rounded-lg border border-slate-300 px-3 py-1 text-sm"
-                                        onClick={getBalance}
-                                        disabled={busy}
-                                    >
-                                        Get Balance
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="rounded-lg border border-slate-300 px-3 py-1 text-sm"
-                                        onClick={getStatements}
-                                        disabled={busy}
-                                    >
-                                        Get Statements
-                                    </button>
-                                </div>
-
-                                {balance && (
-                                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm">
-                                        <div className="font-medium">Balance</div>
-                                        <div className="font-mono">
-                                            {balance.bookedBalance.amount.toFixed(2)}{" "}
-                                            {balance.bookedBalance.currency}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {statements && (
-                                    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-                                        <table className="min-w-full text-sm">
-                                            <thead className="bg-slate-50 text-slate-700">
-                                                <tr>
-                                                    <th className="px-3 py-2 text-left">Booking</th>
-                                                    <th className="px-3 py-2 text-left">Valuta</th>
-                                                    <th className="px-3 py-2 text-right">Amount</th>
-                                                    <th className="px-3 py-2 text-left">Text</th>
-                                                    <th className="px-3 py-2 text-left">Reference</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {statements.entries.map((e, idx) => (
-                                                    <tr
-                                                        key={idx}
-                                                        className={idx % 2 ? "bg-slate-50" : "bg-white"}
-                                                    >
-                                                        <td className="px-3 py-2">
-                                                            {new Date(e.bookingDate).toLocaleDateString()}
-                                                        </td>
-                                                        <td className="px-3 py-2">
-                                                            {e.valutaDate
-                                                                ? new Date(e.valutaDate).toLocaleDateString()
-                                                                : ""}
-                                                        </td>
-                                                        <td className="px-3 py-2 text-right font-mono">
-                                                            {e.amount.amount.toFixed(2)} {e.amount.currency}
-                                                        </td>
-                                                        <td className="px-3 py-2">
-                                                            {e.text || e.counterpart || ""}
-                                                        </td>
-                                                        <td className="px-3 py-2">{e.reference || ""}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="text-sm text-slate-600">
-                                No accounts yet — run Sync after selecting a TAN method.
-                            </div>
-                        )}
+                        <AccountOperations
+                            bankingInformation={bankingInformation}
+                            accountIdx={accountIdx}
+                            busy={busy}
+                            balance={balance}
+                            statements={statements}
+                            onAccountChange={setAccountIdx}
+                            onGetBalance={getBalance}
+                            onGetStatements={getStatements}
+                        />
                     </div>
                 ) : (
                     <div className="text-sm text-slate-600">
@@ -589,49 +281,22 @@ export default function FinTSWizard() {
 
             {tanChallenge && (
                 <Section title="TAN Challenge">
-                    <div className="space-y-3">
-                        <div className="text-sm text-slate-700 whitespace-pre-wrap">
-                            {tanChallenge}
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <input
-                                className="rounded-xl border border-slate-300 px-3 py-2"
-                                placeholder="Enter TAN"
-                                value={tanInput}
-                                onChange={(e) => setTanInput(e.target.value)}
-                            />
-                            <button
-                                type="button"
-                                className="rounded-xl bg-slate-900 text-white px-4 py-2"
-                                onClick={submitTan}
-                                disabled={busy || !tanInput}
-                            >
-                                Submit TAN
-                            </button>
-                            <button
-                                type="button"
-                                className="rounded-xl border px-4 py-2"
-                                onClick={resetTan}
-                            >
-                                Cancel
-                            </button>
-                        </div>
-                    </div>
+                    <TanChallenge
+                        tanChallenge={tanChallenge}
+                        tanInput={tanInput}
+                        busy={busy}
+                        onTanInputChange={setTanInput}
+                        onSubmitTan={submitTan}
+                        onCancel={resetTan}
+                    />
                 </Section>
             )}
 
-            {bankingInformation?.bankMessages?.length ? (
+            {bankingInformation && (
                 <Section title="Bank Messages">
-                    <ul className="list-disc pl-5 text-sm text-slate-700 space-y-1">
-                        {bankingInformation.bankMessages.map((m, i) => (
-                            <li key={i}>
-                                <span className="font-medium">{m.subject || "Message"}:</span>{" "}
-                                {m.text}
-                            </li>
-                        ))}
-                    </ul>
+                    <BankMessages bankingInformation={bankingInformation} />
                 </Section>
-            ) : null}
+            )}
 
             <footer className="text-xs text-slate-500 text-center">
                 This demo stores session data in-memory on the server for convenience.
