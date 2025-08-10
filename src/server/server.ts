@@ -1,5 +1,5 @@
 import { serve, sql } from "bun";
-import homepage from "./App.html";
+import homepage from "../client/App.html";
 
 console.log("Starting server...");
 

@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "dev:html": "bun './**/*.html'",
-    "dev:server": "bun run server.ts",
+    "dev:server": "bun run ./src/server/server.ts",
     "build": "bun 'App.build.ts'",
-    "build:prod": "bun build --target=bun --production --outdir=dist ./server.ts",
-    "start:prod": "cd ./dist && bun run server.js"
+    "build:prod": "bun build --target=bun --production --outdir=dist ./src/server/server.ts",
+    "start:prod": "cd ./dist && bun run ./src/server/server.js"
   },
   "dependencies": {
     "react": "19",
