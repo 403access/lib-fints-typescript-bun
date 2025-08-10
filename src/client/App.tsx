@@ -104,8 +104,8 @@ export default function FinTSWizard() {
     const [form, setForm] = useState({
         productId: "com.example.myproduct", // register at DK/FinTS
         productVersion: "1.0.0",
-        bankUrl: "https://banking-dkb.s-fints-pt-dkb.de/fints30",
-        bankId: "12030000", // BLZ or Bank ID
+        bankUrl: "https://banking-bw4.s-fints-pt-bw.de/fints30",
+        bankId: "60450050", // BLZ or Bank ID
         userId: "",
         pin: "",
     });
