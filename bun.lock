@@ -4,13 +4,13 @@
     "": {
       "name": "react-tailwind-spa",
       "dependencies": {
-        "bun-plugin-tailwind": "^0.0.15",
         "react": "19",
         "react-dom": "19",
         "tailwindcss": "^4.1.11",
       },
       "devDependencies": {
         "biome": "^0.3.3",
+        "bun-plugin-tailwind": "^0.0.15",
       },
     },
   },
