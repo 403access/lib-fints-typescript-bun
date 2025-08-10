@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "bun './**/*.html'",
-    "build": "bun 'App.build.ts'"
+    "build": "bun 'App.build.ts'",
+    "build:prod": "bun build --target=bun --production --outdir=dist ./server.ts",
+    "start:prod": "cd ./dist && bun run server.js"
   },
   "dependencies": {
     "bun-plugin-tailwind": "^0.0.15",
