@@ -3,7 +3,8 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "dev": "bun './**/*.html'",
+    "dev:html": "bun './**/*.html'",
+    "dev:server": "bun run server.ts",
     "build": "bun 'App.build.ts'",
     "build:prod": "bun build --target=bun --production --outdir=dist ./server.ts",
     "start:prod": "cd ./dist && bun run server.js"
