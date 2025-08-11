@@ -2,8 +2,8 @@
  * Pre-built TAN callback implementations for different use cases
  */
 
-import { isDecoupledTanChallenge } from "../../client/utils/fintsUtils";
 import type { BankAnswer } from "../../client/types/fints";
+import { isDecoupledTanChallenge } from "../../client/utils/fintsUtils";
 import type { TanCallback, TanCallbackResult } from "./types";
 
 /**
