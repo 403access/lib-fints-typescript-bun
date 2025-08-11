@@ -1,6 +1,6 @@
 import { serve } from "bun";
 import homepage from "../client/App.html";
-import { handleFinTSRequest } from "./route/fints";
+import { handleFinTSRequest } from "./routes/fints";
 
 if (process.env.FINTS_PRODUCT_REGISTER_ID === undefined) {
 	console.error(
