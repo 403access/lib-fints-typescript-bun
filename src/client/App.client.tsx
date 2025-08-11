@@ -4,6 +4,12 @@ import { default as Component } from "./App";
 // Optionally: import your app's CSS
 // import "./styles.css";
 
+if (process.env.PUBLIC_FINTS_PRODUCT_REGISTER_ID === undefined) {
+  throw new Error(
+    "Please set the PUBLIC_FINTS_PRODUCT_REGISTER_ID environment variable to your registered product ID from DK/FinTS.",
+  );
+}
+
 const elem = document.getElementById("root");
 if (!elem) {
   throw new Error("Root element not found. Ensure your HTML has a <div id='root'></div>.");

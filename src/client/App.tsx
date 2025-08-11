@@ -28,7 +28,7 @@ export default function FinTSWizard() {
 
     // Step 1: credentials & product details
     const [form, setForm] = useState<FinTSForm>({
-        productId: "com.example.myproduct", // register at DK/FinTS
+        productId: process.env.PUBLIC_FINTS_PRODUCT_REGISTER_ID!, // register at DK/FinTS
         productVersion: "1.0.0",
         bankUrl: "https://banking-bw4.s-fints-pt-bw.de/fints30",
         bankId: "60450050", // BLZ or Bank ID

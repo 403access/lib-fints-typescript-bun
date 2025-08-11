@@ -1,6 +1,13 @@
 import { serve, sql } from "bun";
 import homepage from "../client/App.html";
 
+if (process.env.FINTS_PRODUCT_REGISTER_ID === undefined) {
+	console.error(
+		"Please set the FINTS_PRODUCT_REGISTER_ID environment variable to your registered product ID from DK/FinTS.",
+	);
+	process.exit(1);
+}
+
 console.log("Starting server...");
 
 const server = serve({
