@@ -1,5 +1,3 @@
-// FinTS API client
-
 export const API_URL = "/api/fints"; // change if needed
 
 export async function api<T>(body: Record<string, unknown>): Promise<T> {

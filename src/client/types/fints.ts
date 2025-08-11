@@ -1,5 +1,3 @@
-// FinTS type definitions
-
 export type BankAnswer = { code: number; text: string };
 
 export type TanMediaRequirement = "NotRequired" | "Optional" | "Required";

@@ -1,5 +1,3 @@
-// FinTS utility functions for handling bank responses and codes
-
 import type { BankAnswer } from "../types/fints";
 
 /**
