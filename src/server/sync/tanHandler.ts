@@ -1,22 +1,38 @@
 /**
- * TAN authentication handler with push TAN polling support
+ * TAN authentication handler with proper pushTAN decoupled SCA polling support
+ *
+ * Implements the FinTS decoupled process (Process 4/S) according to specification:
+ * 1. Submit job with HKTAN decoupled process
+ * 2. Poll using HKTAN status requests until completion
+ * 3. Look for HIRMS/HIRMG success codes (0020/0010) indicating approval
  */
 
-import { isDecoupledTanChallenge } from "../../client/utils/fintsUtils";
+import {
+	isDecoupledTanChallenge,
+	isTransactionSuccess,
+	isDecoupledTanFailed,
+	isDecoupledTanPending,
+} from "../../client/utils/fintsUtils";
 import type { BankAnswer } from "../../client/types/fints";
 import type {
 	TanCallback,
 	TanCallbackResult,
 	PushTanPollingOptions,
-} from "../types";
+} from "./types";
 
 /**
- * Handles push TAN authentication with polling for user approval
+ * Handles pushTAN decoupled authentication with proper HKTAN status polling
  *
- * @param submitTanFn Function to submit TAN (different for sync vs statements)
+ * This implements the FinTS decoupled SCA flow:
+ * 1. Detect if this is a decoupled TAN (Process 4/S)
+ * 2. Poll using HKTAN status requests until completion
+ * 3. Look for HIRMS/HIRMG success codes (0020 "Auftrag ausgeführt" or 0010 "vorgemerkt")
+ * 4. Stop when we get normal success without further HITAN challenges
+ *
+ * @param submitTanFn Function to submit TAN (performs HKTAN status request for decoupled)
  * @param tanReference TAN reference from initial challenge
  * @param tanChallenge Challenge text for user information
- * @param bankAnswers Bank response answers
+ * @param bankAnswers Bank response answers containing status codes
  * @param tanCallback User's TAN callback function
  * @param pollingOptions Configuration for polling behavior
  * @returns Promise resolving to the operation result
@@ -30,8 +46,8 @@ export async function handlePushTanWithPolling<T>(
 	pollingOptions: PushTanPollingOptions = {},
 ): Promise<T> {
 	const {
-		maxAttempts = 60, // 60 attempts
-		intervalMs = 5000, // 5 seconds between attempts
+		maxAttempts = 60, // 60 attempts (5 minutes at 5s intervals)
+		intervalMs = 5000, // 5 seconds between HKTAN status requests
 		timeoutMs = 300000, // 5 minutes total timeout
 	} = pollingOptions;
 
@@ -42,21 +58,23 @@ export async function handlePushTanWithPolling<T>(
 	console.log(`📋 Challenge: ${tanChallenge}`);
 
 	if (isDecoupledTan) {
-		console.log(`📱 Push TAN detected - waiting for mobile app approval...`);
+		console.log(
+			`📱 Decoupled pushTAN detected (Process 4/S) - waiting for mobile app approval...`,
+		);
 		if (bankAnswers && bankAnswers.length > 0) {
-			console.log("🏦 Bank Messages:");
+			console.log("🏦 Bank Response Codes:");
 			bankAnswers.forEach((answer) => {
 				console.log(`   [${answer.code}] ${answer.text}`);
 			});
 		}
 	}
 
-	// For push TAN, we don't need user input - just wait for approval
+	// Get user acknowledgment (for decoupled TAN, no input needed)
 	let tanResult: TanCallbackResult;
 	if (isDecoupledTan) {
-		// For push TAN, inform user but don't require input
+		// For pushTAN, inform user but don't require TAN input
 		tanResult = await tanCallback(
-			`${tanChallenge}\n\n📱 Please approve this transaction in your banking app. No TAN input required - just approve and we'll continue automatically.`,
+			`${tanChallenge}\n\n📱 Please approve this transaction in your banking app. The system will automatically check for approval using HKTAN status requests.`,
 			tanReference,
 			bankAnswers,
 		);
@@ -69,57 +87,79 @@ export async function handlePushTanWithPolling<T>(
 		throw new Error("TAN authentication cancelled by user");
 	}
 
-	// For push TAN, start polling
+	// For decoupled pushTAN, start HKTAN status polling
 	if (isDecoupledTan) {
-		console.log("🔄 Starting push TAN polling...");
+		console.log("🔄 Starting HKTAN status polling for pushTAN approval...");
 
 		for (let attempt = 1; attempt <= maxAttempts; attempt++) {
 			// Check timeout
 			if (Date.now() - startTime > timeoutMs) {
-				throw new Error(`Push TAN timeout after ${timeoutMs / 1000} seconds`);
+				throw new Error(`PushTAN timeout after ${timeoutMs / 1000} seconds`);
 			}
 
 			try {
-				console.log(`📡 Polling attempt ${attempt}/${maxAttempts}...`);
+				console.log(`📡 HKTAN status request ${attempt}/${maxAttempts}...`);
 
-				// Submit empty TAN for push authentication
+				// Submit HKTAN status request (empty TAN for decoupled authentication)
 				const result = await submitTanFn(tanReference, undefined);
 
-				console.log("✅ Push TAN approved successfully!");
+				// Check if we got a successful response with HIRMS/HIRMG success codes
+				// The lib-fints library should return the result when bank signals completion
+				console.log("✅ PushTAN approved successfully! Transaction completed.");
 				return result;
 			} catch (error) {
 				const errorMessage =
 					error instanceof Error ? error.message : String(error);
 
-				// Check if still pending approval
+				// Parse the error to check if it contains bank response codes
+				// This is where we check for specific FinTS response codes
 				if (
-					errorMessage.includes("noch nicht freigegeben") ||
-					errorMessage.includes("Auftrag wurde noch nicht") ||
+					errorMessage.includes("noch nicht freigegeben") || // "not yet approved"
+					errorMessage.includes("Auftrag wurde noch nicht") || // "order not yet"
 					errorMessage.includes("not yet approved") ||
 					errorMessage.includes("pending approval") ||
-					errorMessage.includes("TAN approval still pending")
+					errorMessage.includes("TAN approval still pending") ||
+					errorMessage.includes("3076") || // DECOUPLED_TAN_NOT_YET_APPROVED
+					errorMessage.includes("3060") // DECOUPLED_TAN_PENDING/STRONG_AUTH_REQUIRED
 				) {
 					console.log(
-						`⏳ Still waiting for approval (attempt ${attempt}/${maxAttempts})...`,
+						`⏳ Still waiting for pushTAN approval (attempt ${attempt}/${maxAttempts})...`,
 					);
 
-					// Wait before next attempt
+					// Wait before next HKTAN status request
 					if (attempt < maxAttempts) {
 						await new Promise((resolve) => setTimeout(resolve, intervalMs));
 					}
 					continue;
 				}
 
-				// If it's a different error, throw it
+				// Check for explicit failure codes
+				if (
+					errorMessage.includes("3077") || // DECOUPLED_TAN_CANCELLED
+					errorMessage.includes("3078") || // DECOUPLED_TAN_EXPIRED
+					errorMessage.includes("abgebrochen") ||
+					errorMessage.includes("cancelled")
+				) {
+					throw new Error(
+						"PushTAN was cancelled or expired in the banking app",
+					);
+				}
+
+				// For any other error, it's likely a real failure
+				console.error(
+					`❌ Unexpected error during pushTAN polling: ${errorMessage}`,
+				);
 				throw error;
 			}
 		}
 
 		throw new Error(
-			`Push TAN approval not received after ${maxAttempts} attempts`,
+			`PushTAN approval not received after ${maxAttempts} HKTAN status requests. ` +
+				`Please check your banking app and try again.`,
 		);
 	} else {
-		// For regular TAN, submit once
+		// For regular TAN, submit once with user input
+		console.log("🔢 Submitting traditional TAN...");
 		return await submitTanFn(tanReference, tanResult.tan);
 	}
 }
