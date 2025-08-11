@@ -24,7 +24,7 @@ export function TanChallenge({
     bankAnswers,
 }: TanChallengeProps) {
     // Use utility function to detect decoupled TAN based on response codes
-    const isDecoupledTan = isDecoupledTanChallenge(bankAnswers, tanChallenge);
+    const isDecoupledTan = isDecoupledTanChallenge(bankAnswers);
 
     const [retryCount, setRetryCount] = useState(0);
 

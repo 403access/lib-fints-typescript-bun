@@ -142,23 +142,9 @@ export function getBankErrorMessage(
  */
 export function isDecoupledTanChallenge(
 	bankAnswers: BankAnswer[] | undefined,
-	tanChallenge: string | undefined,
 ): boolean {
-	// First check response codes (most reliable)
 	if (isDecoupledTanPending(bankAnswers) || isStrongAuthRequired(bankAnswers)) {
 		return true;
 	}
-
-	// Fallback to text analysis for older implementations
-	if (tanChallenge) {
-		const challengeText = tanChallenge.toLowerCase();
-		return (
-			challengeText.includes("app") ||
-			challengeText.includes("freigeben") ||
-			challengeText.includes("approve") ||
-			challengeText.includes("freigabe")
-		);
-	}
-
 	return false;
 }
