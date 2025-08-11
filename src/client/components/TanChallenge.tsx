@@ -81,6 +81,15 @@ export function TanChallenge({
                         </div>
                     )}
 
+                    {isTanFailed && (
+                        <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm">
+                            <div className="font-medium text-red-800">❌ Freigabe fehlgeschlagen</div>
+                            <div className="text-red-700 mt-1">
+                                {error || "Die TAN-Freigabe wurde abgebrochen oder ist abgelaufen."}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="flex items-center gap-3">
                         <button
                             type="button"
