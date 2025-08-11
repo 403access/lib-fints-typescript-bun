@@ -1,8 +1,8 @@
-export { handleStartSession } from "./startSession.js";
-export { handleSelectTan } from "./selectTan.js";
-export { handleSynchronize } from "./synchronize.js";
-export { handleGetAccountBalance } from "./getAccountBalance.js";
-export { handleGetAccountStatements } from "./getAccountStatements.js";
-export { handleGetAllBalances } from "./getAllBalances.js";
-export { handleGetAllStatements } from "./getAllStatements.js";
-export { handleSubmitTan } from "./submitTan.js";
+export { handleStartSession } from "./startSession";
+export { handleSelectTan } from "./selectTan";
+export { handleSynchronize } from "./synchronize";
+export { handleGetAccountBalance } from "./getAccountBalance";
+export { handleGetAccountStatements } from "./getAccountStatements";
+export { handleGetAllBalances } from "./getAllBalances";
+export { handleGetAllStatements } from "./getAllStatements";
+export { handleSubmitTan } from "./submitTan";

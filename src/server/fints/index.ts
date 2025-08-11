@@ -6,7 +6,7 @@
   store in production.
 */
 
-import { getOrCreateSession } from "./session.js";
+import { getOrCreateSession } from "./session";
 import type { FinTSRequest } from "./types";
 import {
 	handleStartSession,
@@ -17,7 +17,7 @@ import {
 	handleGetAllBalances,
 	handleGetAllStatements,
 	handleSubmitTan,
-} from "./handlers/index.js";
+} from "./handlers/index";
 
 export async function handleFinTSRequest(req: Request): Promise<Response> {
 	try {

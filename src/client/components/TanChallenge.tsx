@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { BankAnswer } from "../types/fints";
-import { isDecoupledTanChallenge, isDecoupledTanPending } from "../utils/fintsUtils";
+import { isDecoupledTanChallenge, isDecoupledTanPending, isDecoupledTanFailed } from "../utils/fintsUtils";
 
 export interface TanChallengeProps {
     tanChallenge: string;
@@ -28,12 +28,24 @@ export function TanChallenge({
 
     const [retryCount, setRetryCount] = useState(0);
 
-    // Check if the error indicates pending approval using response codes
+    // Check if the error indicates pending approval using enhanced response codes
     const isPendingApproval = isDecoupledTanPending(bankAnswers) ||
         (error && (
             error.includes("noch nicht freigegeben") ||
             error.includes("TAN approval still pending") ||
-            error.includes("Banking-App frei")
+            error.includes("Banking-App frei") ||
+            error.includes("3076") ||  // DECOUPLED_TAN_NOT_YET_APPROVED
+            error.includes("3060")     // DECOUPLED_TAN_PENDING
+        ));
+
+    // Check if TAN failed or was cancelled
+    const isTanFailed = isDecoupledTanFailed(bankAnswers) ||
+        (error && (
+            error.includes("cancelled") ||
+            error.includes("expired") ||
+            error.includes("abgebrochen") ||
+            error.includes("3077") ||  // DECOUPLED_TAN_CANCELLED
+            error.includes("3078")     // DECOUPLED_TAN_EXPIRED
         ));
 
     const handleDecoupledSubmit = () => {
@@ -41,7 +53,9 @@ export function TanChallenge({
             setRetryCount(prev => prev + 1);
         }
         onSubmitTan(); // Try to submit without TAN for decoupled methods
-    }; return (
+    };
+
+    return (
         <div className="space-y-3">
             <div className="text-sm text-slate-700 whitespace-pre-wrap">
                 {tanChallenge}
@@ -63,6 +77,15 @@ export function TanChallenge({
                             <div className="text-orange-700 mt-1">
                                 {error}
                                 {retryCount > 0 && ` (Versuch ${retryCount})`}
+                            </div>
+                        </div>
+                    )}
+
+                    {isTanFailed && (
+                        <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm">
+                            <div className="font-medium text-red-800">❌ Freigabe fehlgeschlagen</div>
+                            <div className="text-red-700 mt-1">
+                                {error || "Die TAN-Freigabe wurde abgebrochen oder ist abgelaufen."}
                             </div>
                         </div>
                     )}

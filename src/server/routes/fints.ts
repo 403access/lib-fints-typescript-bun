@@ -5,4 +5,4 @@
   This file now serves as a simple proxy to the modular implementation.
 */
 
-export { handleFinTSRequest } from "../fints/index.js";
+export { handleFinTSRequest } from "../fints/index";

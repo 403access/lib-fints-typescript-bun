@@ -131,28 +131,64 @@ export async function handleSubmitTan(
 		session.pending = undefined;
 		return new Response(JSON.stringify(res), { headers });
 	} catch (error) {
-		// Handle cases where the TAN approval is still pending
 		const errorMessage = error instanceof Error ? error.message : String(error);
 
-		// Common error messages that indicate the user needs more time to approve
-		if (
-			errorMessage.includes("noch nicht freigegeben") ||
-			errorMessage.includes("Auftrag wurde noch nicht") ||
+		console.log(`🔍 TAN submission error analysis: ${errorMessage}`);
+
+		// Enhanced decoupled TAN status checking
+		// Look for specific FinTS response codes that indicate pending approval
+		const isPendingApproval =
+			errorMessage.includes("noch nicht freigegeben") || // "not yet approved"
+			errorMessage.includes("Auftrag wurde noch nicht") || // "order not yet"
 			errorMessage.includes("not yet approved") ||
-			errorMessage.includes("pending approval")
-		) {
+			errorMessage.includes("pending approval") ||
+			errorMessage.includes("TAN approval still pending") ||
+			errorMessage.includes("3076") || // DECOUPLED_TAN_NOT_YET_APPROVED
+			errorMessage.includes("3060"); // DECOUPLED_TAN_PENDING/STRONG_AUTH_REQUIRED
+
+		// Check for explicit TAN cancellation or failure
+		const isTanFailed =
+			errorMessage.includes("3077") || // DECOUPLED_TAN_CANCELLED
+			errorMessage.includes("3078") || // DECOUPLED_TAN_EXPIRED
+			errorMessage.includes("abgebrochen") ||
+			errorMessage.includes("cancelled") ||
+			errorMessage.includes("expired");
+
+		if (isPendingApproval) {
+			console.log(
+				"⏳ Decoupled TAN still pending approval - keeping session active for retry",
+			);
 			return new Response(
 				JSON.stringify({
 					error:
 						"TAN approval still pending. Please complete the approval in your banking app and try again.",
 					isPending: true,
 					tanReference: tanReference, // Keep the same reference for retry
+					bankAnswers: [{ code: 3076, text: "TAN approval still pending" }], // Provide status for frontend
 				}),
 				{ status: 202, headers }, // 202 = Accepted but processing not complete
 			);
 		}
 
+		if (isTanFailed) {
+			console.log("❌ Decoupled TAN failed or was cancelled");
+			session.pending = undefined; // Clear pending operation
+			return new Response(
+				JSON.stringify({
+					error: "TAN approval was cancelled or expired. Please try again.",
+					bankAnswers: [
+						{ code: 3077, text: "TAN approval cancelled or expired" },
+					],
+				}),
+				{
+					status: 400,
+					headers,
+				},
+			);
+		}
+
 		// For other errors, clear the pending operation and return error
+		console.log("❌ Other TAN submission error - clearing pending operation");
 		session.pending = undefined;
 		return new Response(JSON.stringify({ error: errorMessage }), {
 			status: 400,
