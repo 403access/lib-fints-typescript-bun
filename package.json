@@ -6,7 +6,8 @@
     "format": "bunx --bun biome format --write ./src",
     "dev": "bun run ./src/server/server.ts",
     "build:prod": "bun build --target=bun --production --outdir=dist ./src/server/server.ts",
-    "start:prod": "cd ./dist && bun run ./src/server/server.js"
+    "start:prod": "cd ./dist && bun run ./src/server/server.js",
+    "demo:sync": "bun run ./src/server/demo-sync.ts"
   },
   "dependencies": {
     "lib-fints": "^1.2.1",
