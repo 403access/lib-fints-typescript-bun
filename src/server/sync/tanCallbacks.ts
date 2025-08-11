@@ -4,7 +4,7 @@
 
 import { isDecoupledTanChallenge } from "../../client/utils/fintsUtils";
 import type { BankAnswer } from "../../client/types/fints";
-import type { TanCallback, TanCallbackResult } from "../types";
+import type { TanCallback, TanCallbackResult } from "./types";
 
 /**
  * Creates a simple command-line TAN callback for interactive authentication
