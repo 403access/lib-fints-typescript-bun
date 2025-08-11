@@ -50,16 +50,50 @@ export async function syncAllStatements(
 		client = new FinTSClient(config);
 
 		// Perform initial synchronization with TAN handling
-		let syncRes = await client.synchronize();
+		const syncRes = await client.synchronize();
 		console.log("Initial synchronization result:", syncRes);
 
-		const res = await client.selectTanMethod(923);
-		console.log("Selected TAN method:", res);
+		// Check for PIN blocking or other critical errors
+		if (syncRes.bankAnswers) {
+			const isPinBlocked = syncRes.bankAnswers.some(answer => 
+				answer.code === 3938 || // PIN blocked
+				answer.code === 9900    // Login failed
+			);
+			
+			if (isPinBlocked) {
+				const blockMessage = syncRes.bankAnswers.find(answer => 
+					answer.code === 3938 || answer.code === 9900
+				)?.text || "PIN is blocked or login failed";
+				
+				return {
+					success: false,
+					error: `Authentication failed: ${blockMessage}. Please unblock your PIN through your bank's website or app.`,
+					bankingInformation: config.bankingInformation,
+				};
+			}
+		}
 
-		syncRes = await client.synchronize();
-		console.log("Post-TAN synchronization result:", syncRes);
+		// Select TAN method if available (but don't sync again)
+		if (syncRes.success && config.bankingInformation?.bpd?.availableTanMethodIds?.includes(923)) {
+			const res = await client.selectTanMethod(923);
+			console.log("Selected TAN method:", res);
+		}
 
-		if (syncRes.requiresTan) {
+		// After initial sync and TAN method selection, perform a second sync to get account information (UPD)
+		// This is often required in FinTS to retrieve user-specific data like accounts
+		let finalSyncRes = syncRes;
+		if (syncRes.success && !syncRes.requiresTan) {
+			try {
+				console.log("Performing second sync to retrieve account information...");
+				finalSyncRes = await client.synchronize();
+				console.log("Final synchronization result:", finalSyncRes);
+			} catch (error) {
+				console.warn("Second sync failed, proceeding with first sync result:", error);
+				// Continue with first sync result
+			}
+		}
+
+		if (finalSyncRes.requiresTan) {
 			if (!tanCallback) {
 				return {
 					success: false,
@@ -70,7 +104,7 @@ export async function syncAllStatements(
 			}
 
 			// Validate TAN reference
-			if (!syncRes.tanReference) {
+			if (!finalSyncRes.tanReference) {
 				console.warn(
 					"Warning: TAN required but no TAN reference provided by bank",
 				);
@@ -89,9 +123,9 @@ export async function syncAllStatements(
 				await handlePushTanWithPolling(
 					(reference: string, tan?: string) =>
 						fintsClient.synchronizeWithTan(reference, tan),
-					syncRes.tanReference,
-					syncRes.tanChallenge || "TAN required for synchronization",
-					syncRes.bankAnswers,
+					finalSyncRes.tanReference,
+					finalSyncRes.tanChallenge || "TAN required for synchronization",
+					finalSyncRes.bankAnswers,
 					tanCallback,
 				);
 			} catch (error) {

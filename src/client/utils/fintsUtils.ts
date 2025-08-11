@@ -20,6 +20,10 @@ export const FINTS_RESPONSE_CODES = {
 	INVALID_PIN: 9340,
 	PIN_LOCKED: 9942,
 	USER_LOCKED: 9210,
+	PIN_TEMPORARILY_BLOCKED: 3938, // PIN temporarily blocked
+	LOGIN_FAILED: 9900, // Login failed
+	MESSAGE_CONTAINS_ERRORS: 9050, // Message contains errors
+	DIALOG_ABORTED: 9800, // Dialog aborted
 
 	// Decoupled/App-based TAN codes (Process 4/S)
 	DECOUPLED_TAN_PENDING: 3060, // Same as STRONG_AUTHENTICATION_REQUIRED - decoupled required
@@ -139,7 +143,9 @@ export function isPinInvalid(bankAnswers: BankAnswer[] | undefined): boolean {
 export function isUserLocked(bankAnswers: BankAnswer[] | undefined): boolean {
 	return (
 		hasBankAnswerCode(bankAnswers, FINTS_RESPONSE_CODES.PIN_LOCKED) ||
-		hasBankAnswerCode(bankAnswers, FINTS_RESPONSE_CODES.USER_LOCKED)
+		hasBankAnswerCode(bankAnswers, FINTS_RESPONSE_CODES.USER_LOCKED) ||
+		hasBankAnswerCode(bankAnswers, FINTS_RESPONSE_CODES.PIN_TEMPORARILY_BLOCKED) ||
+		hasBankAnswerCode(bankAnswers, FINTS_RESPONSE_CODES.LOGIN_FAILED)
 	);
 }
 
@@ -167,6 +173,13 @@ export function getBankErrorMessage(
 	}
 
 	if (isUserLocked(bankAnswers)) {
+		// Check for specific PIN blocking codes
+		if (hasBankAnswerCode(bankAnswers, FINTS_RESPONSE_CODES.PIN_TEMPORARILY_BLOCKED)) {
+			return "Ihr Zugang ist vorläufig gesperrt. Bitte heben Sie die PIN-Sperre über die Website oder App Ihrer Bank auf.";
+		}
+		if (hasBankAnswerCode(bankAnswers, FINTS_RESPONSE_CODES.LOGIN_FAILED)) {
+			return "Anmeldung fehlgeschlagen. Bitte überprüfen Sie Ihre Zugangsdaten oder entsperren Sie Ihren Zugang.";
+		}
 		return "Ihr Zugang ist gesperrt. Bitte wenden Sie sich an Ihre Bank.";
 	}
 
