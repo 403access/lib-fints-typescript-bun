@@ -98,13 +98,39 @@ export async function handlePushTanWithPolling<T>(
 				// Submit HKTAN status request (empty TAN for decoupled authentication)
 				const result = await submitTanFn(tanReference, undefined);
 
+				// Check the result for pending status codes
+				if (result && typeof result === 'object' && 'bankAnswers' in result) {
+					const bankAnswers = (result as any).bankAnswers;
+					console.log("🔍 Bank response codes:", bankAnswers?.map((a: any) => `${a.code}: ${a.text}`));
+					
+					// Check for pending codes that indicate we should continue polling
+					if (bankAnswers?.some((answer: any) => 
+						answer.code === 3956 || // "Starke Kundenauthentifizierung noch ausstehend"
+						answer.code === 3076 || // DECOUPLED_TAN_NOT_YET_APPROVED
+						answer.code === 3060 || // DECOUPLED_TAN_PENDING
+						answer.text?.includes("noch ausstehend") ||
+						answer.text?.includes("noch nicht freigegeben")
+					)) {
+						console.log(`⏳ Still waiting for pushTAN approval (attempt ${attempt}/${maxAttempts})...`);
+						
+						// Wait before next HKTAN status request
+						if (attempt < maxAttempts) {
+							await new Promise((resolve) => setTimeout(resolve, intervalMs));
+						}
+						continue;
+					}
+				}
+
 				// Check if we got a successful response with HIRMS/HIRMG success codes
 				// The lib-fints library should return the result when bank signals completion
 				console.log("✅ PushTAN approved successfully! Transaction completed.");
+				console.log("🔍 Result details:", JSON.stringify(result, null, 2));
 				return result;
 			} catch (error) {
 				const errorMessage =
 					error instanceof Error ? error.message : String(error);
+
+				console.log(`🔍 TAN polling error analysis: ${errorMessage}`);
 
 				// Parse the error to check if it contains bank response codes
 				// This is where we check for specific FinTS response codes

@@ -224,3 +224,47 @@ export function isDecoupledTanChallenge(
 
 	return false;
 }
+
+/**
+ * Determines if automatic push TAN polling should be used for a FinTS response
+ * This checks if the response indicates a decoupled TAN process that can be handled automatically
+ */
+export function shouldUseAutomaticPolling(response: {
+	requiresTan?: boolean;
+	tanReference?: string;
+	bankAnswers?: BankAnswer[];
+}): boolean {
+	return !!(
+		response.requiresTan &&
+		response.tanReference &&
+		isDecoupledTanChallenge(response.bankAnswers)
+	);
+}
+
+/**
+ * Extracts operation information from a pending TAN state for polling
+ */
+export function extractPollingInfo(response: {
+	requiresTan?: boolean;
+	tanReference?: string;
+	bankAnswers?: BankAnswer[];
+}): {
+	tanReference: string;
+	operation: string;
+} | null {
+	if (!shouldUseAutomaticPolling(response)) {
+		return null;
+	}
+
+	// Extract operation from context or determine from bank answers
+	// This is a simplified version - in practice you might need more context
+	const tanReference = response.tanReference;
+	if (!tanReference) {
+		return null;
+	}
+
+	return {
+		tanReference,
+		operation: "sync", // Default operation, could be enhanced to detect actual operation
+	};
+}

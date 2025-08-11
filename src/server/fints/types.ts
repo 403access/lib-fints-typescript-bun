@@ -28,7 +28,8 @@ export type FinTSAction =
 	| "getAccountStatements"
 	| "getAllBalances"
 	| "getAllStatements"
-	| "submitTan";
+	| "submitTan"
+	| "pollTanStatus";
 
 export type FinTSRequest = {
 	action: FinTSAction;

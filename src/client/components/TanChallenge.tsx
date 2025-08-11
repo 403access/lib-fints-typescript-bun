@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { BankAnswer } from "../types/fints";
 import {
     isDecoupledTanChallenge,
     isDecoupledTanFailed,
     isDecoupledTanPending,
 } from "../utils/fintsUtils";
+import { pollTanStatusAutomatically } from "../utils/api";
 
 export interface TanChallengeProps {
     tanChallenge: string;
@@ -15,6 +16,11 @@ export interface TanChallengeProps {
     onCancel: () => void;
     error?: string | null;
     bankAnswers?: BankAnswer[];
+    tanReference?: string;
+    operation?: string;
+    accountNumber?: string;
+    enableAutomaticPolling?: boolean;
+    onAutomaticPollingResult?: (result: unknown) => void;
 }
 
 export function TanChallenge({
@@ -26,11 +32,19 @@ export function TanChallenge({
     onCancel,
     error,
     bankAnswers,
+    tanReference,
+    operation = "sync",
+    accountNumber,
+    enableAutomaticPolling = true,
+    onAutomaticPollingResult,
 }: TanChallengeProps) {
     // Use utility function to detect decoupled TAN based on response codes
     const isDecoupledTan = isDecoupledTanChallenge(bankAnswers);
 
     const [retryCount, setRetryCount] = useState(0);
+    const [isAutoPolling, setIsAutoPolling] = useState(false);
+    const [pollingAttempt, setPollingAttempt] = useState(0);
+    const pollingRef = useRef<boolean>(false);
 
     // Check if the error indicates pending approval using enhanced response codes
     const isPendingApproval =
@@ -51,6 +65,57 @@ export function TanChallenge({
                 error.includes("abgebrochen") ||
                 error.includes("3077") || // DECOUPLED_TAN_CANCELLED
                 error.includes("3078"))); // DECOUPLED_TAN_EXPIRED
+
+    // Automatic polling effect
+    useEffect(() => {
+        if (
+            enableAutomaticPolling &&
+            isDecoupledTan &&
+            tanReference &&
+            !isTanFailed &&
+            !pollingRef.current
+        ) {
+            pollingRef.current = true;
+            setIsAutoPolling(true);
+
+            console.log("🔄 Starting automatic push TAN polling...");
+
+            pollTanStatusAutomatically(tanReference, operation, accountNumber, {
+                maxAttempts: 60,
+                intervalMs: 5000,
+                onPollingUpdate: (attempt, maxAttempts) => {
+                    setPollingAttempt(attempt);
+                    console.log(`📡 Polling attempt ${attempt}/${maxAttempts}`);
+                },
+            })
+                .then((result) => {
+                    console.log("✅ Automatic polling successful!");
+                    setIsAutoPolling(false);
+                    pollingRef.current = false;
+                    if (onAutomaticPollingResult) {
+                        onAutomaticPollingResult(result);
+                    }
+                })
+                .catch((error) => {
+                    console.error("❌ Automatic polling failed:", error);
+                    setIsAutoPolling(false);
+                    pollingRef.current = false;
+                    // Continue with manual handling
+                });
+        }
+
+        return () => {
+            pollingRef.current = false;
+        };
+    }, [
+        enableAutomaticPolling,
+        isDecoupledTan,
+        tanReference,
+        operation,
+        accountNumber,
+        isTanFailed,
+        onAutomaticPollingResult,
+    ]);
 
     const handleDecoupledSubmit = () => {
         if (isPendingApproval) {
@@ -76,6 +141,11 @@ export function TanChallenge({
                             Bitte öffnen Sie Ihre Banking-App und geben Sie die Transaktion
                             frei.
                         </div>
+                        {isAutoPolling && (
+                            <div className="text-blue-600 mt-2 text-xs">
+                                🔄 Automatische Prüfung läuft... (Versuch {pollingAttempt}/60)
+                            </div>
+                        )}
                     </div>
 
                     {isPendingApproval && (
@@ -107,13 +177,15 @@ export function TanChallenge({
                             type="button"
                             className="rounded-xl bg-blue-600 text-white px-4 py-2"
                             onClick={handleDecoupledSubmit}
-                            disabled={busy}
+                            disabled={busy || isAutoPolling}
                         >
                             {busy
                                 ? "Prüfen..."
-                                : isPendingApproval
-                                    ? "Erneut prüfen"
-                                    : "Freigabe prüfen"}
+                                : isAutoPolling
+                                    ? "Automatische Prüfung..."
+                                    : isPendingApproval
+                                        ? "Erneut prüfen"
+                                        : "Freigabe prüfen"}
                         </button>
                         <button
                             type="button"
@@ -125,7 +197,11 @@ export function TanChallenge({
                     </div>
 
                     <div className="text-xs text-slate-600">
-                        💡 Tipp: Nach der Freigabe in der App, klicken Sie "Erneut prüfen"
+                        {isAutoPolling ? (
+                            <>� Das System prüft automatisch auf Freigabe. Sie müssen nichts weiter tun.</>
+                        ) : (
+                            <>�💡 Tipp: Nach der Freigabe in der App, klicken Sie "Erneut prüfen"</>
+                        )}
                     </div>
                 </div>
             ) : (

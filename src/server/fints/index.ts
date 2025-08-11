@@ -11,6 +11,7 @@ import {
 	handleGetAccountStatements,
 	handleGetAllBalances,
 	handleGetAllStatements,
+	handlePollTanStatus,
 	handleSelectTan,
 	handleStartSession,
 	handleSubmitTan,
@@ -71,6 +72,9 @@ export async function handleFinTSRequest(req: Request): Promise<Response> {
 
 			case "submitTan":
 				return await handleSubmitTan(session, payload || {}, headers);
+
+			case "pollTanStatus":
+				return await handlePollTanStatus(session, payload || {}, headers);
 
 			default:
 				return new Response(JSON.stringify({ error: "Unknown action" }), {

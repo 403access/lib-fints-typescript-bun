@@ -7,7 +7,8 @@
     "dev": "bun run ./src/server/server.ts",
     "build:prod": "bun build --target=bun --production --outdir=dist ./src/server/server.ts",
     "start:prod": "cd ./dist && bun run ./src/server/server.js",
-    "demo:sync": "bun run ./src/server/demo-sync.ts"
+    "demo:sync": "bun run ./src/server/demo-sync.ts",
+    "demo:auto-polling": "bun run ./src/server/demo-automatic-polling.ts"
   },
   "dependencies": {
     "lib-fints": "^1.2.1",
