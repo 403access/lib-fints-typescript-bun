@@ -95,9 +95,17 @@ export default function FinTSWizard() {
     async function startSession() {
         setError(null);
         setBusy(true);
+        resetTan();
         try {
-            const bankingInfo = await actions.startSession(form);
-            setBankingInformation(bankingInfo);
+            const res = await actions.startSession(form);
+            setBankingInformation(res.bankingInformation);
+
+            // Check if TAN is required for initial session
+            if (res.requiresTan) {
+                setTanChallenge(res.tanChallenge || "TAN required for initial connection");
+                setTanReference(res.tanReference || null);
+                setPendingOp("sync");
+            }
         } catch (e: unknown) {
             setError(e instanceof Error ? e.message : String(e));
         } finally {

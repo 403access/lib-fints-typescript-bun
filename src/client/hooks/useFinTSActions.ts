@@ -11,8 +11,11 @@ export function useFinTSActions() {
 	async function startSession(form: FinTSForm) {
 		const res = await api<{
 			bankingInformation: BankingInformation | null;
+			requiresTan?: boolean;
+			tanChallenge?: string;
+			tanReference?: string;
 		}>({ action: "startSession", payload: form });
-		return res.bankingInformation;
+		return res;
 	}
 
 	async function selectTan(tanMethodId: number, tanMediaName?: string) {
