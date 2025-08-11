@@ -14,6 +14,7 @@
  * - Can be overkill for simple apps
  */
 
+import { createInterface } from "node:readline";
 import type { BankAnswer } from "../../client/types/fints";
 
 // Interface for TAN authentication strategy
@@ -101,7 +102,6 @@ class HardwareTokenAuthenticator implements ITanAuthenticator {
 		console.log(`Challenge: ${challenge}`);
 
 		// Simulate manual token input
-		const { createInterface } = await import("readline");
 		const rl = createInterface({
 			input: process.stdin,
 			output: process.stdout,

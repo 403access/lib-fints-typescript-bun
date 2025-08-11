@@ -2,6 +2,7 @@
  * Pre-built TAN callback implementations for different use cases
  */
 
+import { createInterface } from "node:readline";
 import type { BankAnswer } from "../../client/types/fints";
 import { isDecoupledTanChallenge } from "../../client/utils/fintsUtils";
 import type { TanCallback, TanCallbackResult } from "./types";
@@ -18,9 +19,6 @@ export function createCommandLineTanCallback(): TanCallback {
 		tanReference: string,
 		bankAnswers?: BankAnswer[],
 	): Promise<TanCallbackResult> => {
-		// Dynamic import to avoid issues in non-Node environments
-		const { createInterface } = await import("readline");
-
 		console.log("\n🔐 === TAN Authentication Required ===");
 		console.log("📋 Challenge:", tanChallenge);
 		console.log("🔑 Reference:", tanReference);
