@@ -144,7 +144,10 @@ export function isUserLocked(bankAnswers: BankAnswer[] | undefined): boolean {
 	return (
 		hasBankAnswerCode(bankAnswers, FINTS_RESPONSE_CODES.PIN_LOCKED) ||
 		hasBankAnswerCode(bankAnswers, FINTS_RESPONSE_CODES.USER_LOCKED) ||
-		hasBankAnswerCode(bankAnswers, FINTS_RESPONSE_CODES.PIN_TEMPORARILY_BLOCKED) ||
+		hasBankAnswerCode(
+			bankAnswers,
+			FINTS_RESPONSE_CODES.PIN_TEMPORARILY_BLOCKED,
+		) ||
 		hasBankAnswerCode(bankAnswers, FINTS_RESPONSE_CODES.LOGIN_FAILED)
 	);
 }
@@ -174,7 +177,12 @@ export function getBankErrorMessage(
 
 	if (isUserLocked(bankAnswers)) {
 		// Check for specific PIN blocking codes
-		if (hasBankAnswerCode(bankAnswers, FINTS_RESPONSE_CODES.PIN_TEMPORARILY_BLOCKED)) {
+		if (
+			hasBankAnswerCode(
+				bankAnswers,
+				FINTS_RESPONSE_CODES.PIN_TEMPORARILY_BLOCKED,
+			)
+		) {
 			return "Ihr Zugang ist vorläufig gesperrt. Bitte heben Sie die PIN-Sperre über die Website oder App Ihrer Bank auf.";
 		}
 		if (hasBankAnswerCode(bankAnswers, FINTS_RESPONSE_CODES.LOGIN_FAILED)) {

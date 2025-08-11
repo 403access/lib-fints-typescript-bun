@@ -55,16 +55,18 @@ export async function syncAllStatements(
 
 		// Check for PIN blocking or other critical errors
 		if (syncRes.bankAnswers) {
-			const isPinBlocked = syncRes.bankAnswers.some(answer => 
-				answer.code === 3938 || // PIN blocked
-				answer.code === 9900    // Login failed
+			const isPinBlocked = syncRes.bankAnswers.some(
+				(answer) =>
+					answer.code === 3938 || // PIN blocked
+					answer.code === 9900, // Login failed
 			);
-			
+
 			if (isPinBlocked) {
-				const blockMessage = syncRes.bankAnswers.find(answer => 
-					answer.code === 3938 || answer.code === 9900
-				)?.text || "PIN is blocked or login failed";
-				
+				const blockMessage =
+					syncRes.bankAnswers.find(
+						(answer) => answer.code === 3938 || answer.code === 9900,
+					)?.text || "PIN is blocked or login failed";
+
 				return {
 					success: false,
 					error: `Authentication failed: ${blockMessage}. Please unblock your PIN through your bank's website or app.`,
@@ -74,7 +76,10 @@ export async function syncAllStatements(
 		}
 
 		// Select TAN method if available (but don't sync again)
-		if (syncRes.success && config.bankingInformation?.bpd?.availableTanMethodIds?.includes(923)) {
+		if (
+			syncRes.success &&
+			config.bankingInformation?.bpd?.availableTanMethodIds?.includes(923)
+		) {
 			const res = await client.selectTanMethod(923);
 			console.log("Selected TAN method:", res);
 		}
@@ -84,11 +89,16 @@ export async function syncAllStatements(
 		let finalSyncRes = syncRes;
 		if (syncRes.success && !syncRes.requiresTan) {
 			try {
-				console.log("Performing second sync to retrieve account information...");
+				console.log(
+					"Performing second sync to retrieve account information...",
+				);
 				finalSyncRes = await client.synchronize();
 				console.log("Final synchronization result:", finalSyncRes);
 			} catch (error) {
-				console.warn("Second sync failed, proceeding with first sync result:", error);
+				console.warn(
+					"Second sync failed, proceeding with first sync result:",
+					error,
+				);
 				// Continue with first sync result
 			}
 		}
