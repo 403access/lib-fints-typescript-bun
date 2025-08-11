@@ -8,6 +8,7 @@
     "start:prod": "cd ./dist && bun run ./src/server/server.js"
   },
   "dependencies": {
+    "lib-fints": "^1.2.1",
     "react": "19",
     "react-dom": "19",
     "tailwindcss": "^4.1.11"
