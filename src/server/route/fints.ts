@@ -217,49 +217,92 @@ export async function handleFinTSRequest(req: Request): Promise<Response> {
 
 			let res: unknown;
 
-			if (op === "sync") {
-				res = await session.client.synchronizeWithTan(tanReference, tan);
-				// Add banking information to sync response
-				if (res && typeof res === "object" && "success" in res && res.success) {
-					const bankingInformation = session.config?.bankingInformation;
-					if (bankingInformation) {
-						(res as Record<string, unknown>).data = { bankingInformation };
+			try {
+				if (op === "sync") {
+					// For decoupled TAN methods, tan can be undefined/empty
+					res = await session.client.synchronizeWithTan(
+						tanReference,
+						tan || undefined,
+					);
+					// Add banking information to sync response
+					if (
+						res &&
+						typeof res === "object" &&
+						"success" in res &&
+						res.success
+					) {
+						const bankingInformation = session.config?.bankingInformation;
+						if (bankingInformation) {
+							(res as Record<string, unknown>).data = { bankingInformation };
+						}
 					}
+				} else if (op === "balance") {
+					const accountNumber = session.pending.accountNumber;
+					if (!accountNumber) {
+						return new Response(
+							JSON.stringify({
+								error: "No account number for balance operation",
+							}),
+							{ status: 400, headers },
+						);
+					}
+					res = await session.client.getAccountBalanceWithTan(
+						tanReference,
+						tan || undefined,
+					);
+				} else if (op === "statements") {
+					const accountNumber = session.pending.accountNumber;
+					if (!accountNumber) {
+						return new Response(
+							JSON.stringify({
+								error: "No account number for statements operation",
+							}),
+							{ status: 400, headers },
+						);
+					}
+					res = await session.client.getAccountStatementsWithTan(
+						tanReference,
+						tan || undefined,
+					);
+				} else {
+					return new Response(JSON.stringify({ error: "Invalid operation" }), {
+						status: 400,
+						headers,
+					});
 				}
-			} else if (op === "balance") {
-				const accountNumber = session.pending.accountNumber;
-				if (!accountNumber) {
+
+				session.pending = undefined;
+				return new Response(JSON.stringify(res), { headers });
+			} catch (error) {
+				// Handle cases where the TAN approval is still pending
+				const errorMessage =
+					error instanceof Error ? error.message : String(error);
+
+				// Common error messages that indicate the user needs more time to approve
+				if (
+					errorMessage.includes("noch nicht freigegeben") ||
+					errorMessage.includes("Auftrag wurde noch nicht") ||
+					errorMessage.includes("not yet approved") ||
+					errorMessage.includes("pending approval")
+				) {
 					return new Response(
 						JSON.stringify({
-							error: "No account number for balance operation",
+							error:
+								"TAN approval still pending. Please complete the approval in your banking app and try again.",
+							isPending: true,
+							tanReference: tanReference, // Keep the same reference for retry
 						}),
-						{ status: 400, headers },
+						{ status: 202, headers }, // 202 = Accepted but processing not complete
 					);
 				}
-				res = await session.client.getAccountBalanceWithTan(tanReference, tan);
-			} else if (op === "statements") {
-				const accountNumber = session.pending.accountNumber;
-				if (!accountNumber) {
-					return new Response(
-						JSON.stringify({
-							error: "No account number for statements operation",
-						}),
-						{ status: 400, headers },
-					);
-				}
-				res = await session.client.getAccountStatementsWithTan(
-					tanReference,
-					tan,
-				);
-			} else {
-				return new Response(JSON.stringify({ error: "Invalid operation" }), {
+
+				// For other errors, clear the pending operation and return error
+				session.pending = undefined;
+				return new Response(JSON.stringify({ error: errorMessage }), {
 					status: 400,
 					headers,
 				});
 			}
-
-			session.pending = undefined;
-			return new Response(JSON.stringify(res), { headers });
 		}
 
 		return new Response(JSON.stringify({ error: "Unknown action" }), {

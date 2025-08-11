@@ -212,7 +212,17 @@ export default function FinTSWizard() {
             }
             resetTan();
         } catch (e: unknown) {
-            setError(e instanceof Error ? e.message : String(e));
+            const errorMessage = e instanceof Error ? e.message : String(e);
+
+            // Check if this is a pending approval error (status 202)
+            if (errorMessage.includes("TAN approval still pending") ||
+                errorMessage.includes("noch nicht freigegeben")) {
+                setError("Bitte geben Sie die Transaktion in Ihrer Banking-App frei und versuchen Sie es erneut.");
+                // Don't reset TAN state, keep the challenge active for retry
+                return;
+            }
+
+            setError(errorMessage);
         } finally {
             setBusy(false);
         }
@@ -293,6 +303,7 @@ export default function FinTSWizard() {
                         tanChallenge={tanChallenge}
                         tanInput={tanInput}
                         busy={busy}
+                        error={error}
                         onTanInputChange={setTanInput}
                         onSubmitTan={submitTan}
                         onCancel={resetTan}
