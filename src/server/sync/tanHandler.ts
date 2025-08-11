@@ -7,17 +7,12 @@
  * 3. Look for HIRMS/HIRMG success codes (0020/0010) indicating approval
  */
 
-import {
-	isDecoupledTanChallenge,
-	isTransactionSuccess,
-	isDecoupledTanFailed,
-	isDecoupledTanPending,
-} from "../../client/utils/fintsUtils";
 import type { BankAnswer } from "../../client/types/fints";
+import { isDecoupledTanChallenge } from "../../client/utils/fintsUtils";
 import type {
+	PushTanPollingOptions,
 	TanCallback,
 	TanCallbackResult,
-	PushTanPollingOptions,
 } from "./types";
 
 /**
