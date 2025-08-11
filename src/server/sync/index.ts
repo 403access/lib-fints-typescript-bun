@@ -7,21 +7,17 @@
 
 // Main sync functions
 export {
-	syncAllStatements,
 	syncAccountStatements,
+	syncAllStatements,
 } from "./sync";
-
-// TAN handling utilities
-export { handlePushTanWithPolling } from "./tanHandler";
-
 // Pre-built TAN callback implementations
 export {
-	createCommandLineTanCallback,
 	createAutomaticPushTanCallback,
+	createCommandLineTanCallback,
 } from "./tanCallbacks";
-
-// Validation utilities
-export { validateCredentials } from "./validation";
-
+// TAN handling utilities
+export { handlePushTanWithPolling } from "./tanHandler";
 // Type definitions
 export type * from "./types";
+// Validation utilities
+export { validateCredentials } from "./validation";

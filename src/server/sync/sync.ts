@@ -364,13 +364,12 @@ export async function syncAccountStatements(
 	);
 }
 
-// Re-export from other modules for convenience
-export { validateCredentials } from "./validation";
 export {
-	createCommandLineTanCallback,
 	createAutomaticPushTanCallback,
+	createCommandLineTanCallback,
 } from "./tanCallbacks";
 export { handlePushTanWithPolling } from "./tanHandler";
-
 // Re-export types
 export type * from "./types";
+// Re-export from other modules for convenience
+export { validateCredentials } from "./validation";

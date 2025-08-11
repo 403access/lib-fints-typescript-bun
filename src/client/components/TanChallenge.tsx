@@ -1,6 +1,10 @@
 import { useState } from "react";
 import type { BankAnswer } from "../types/fints";
-import { isDecoupledTanChallenge, isDecoupledTanPending, isDecoupledTanFailed } from "../utils/fintsUtils";
+import {
+    isDecoupledTanChallenge,
+    isDecoupledTanFailed,
+    isDecoupledTanPending,
+} from "../utils/fintsUtils";
 
 export interface TanChallengeProps {
     tanChallenge: string;
@@ -29,28 +33,28 @@ export function TanChallenge({
     const [retryCount, setRetryCount] = useState(0);
 
     // Check if the error indicates pending approval using enhanced response codes
-    const isPendingApproval = isDecoupledTanPending(bankAnswers) ||
-        (error && (
-            error.includes("noch nicht freigegeben") ||
-            error.includes("TAN approval still pending") ||
-            error.includes("Banking-App frei") ||
-            error.includes("3076") ||  // DECOUPLED_TAN_NOT_YET_APPROVED
-            error.includes("3060")     // DECOUPLED_TAN_PENDING
-        ));
+    const isPendingApproval =
+        isDecoupledTanPending(bankAnswers) ||
+        (error &&
+            (error.includes("noch nicht freigegeben") ||
+                error.includes("TAN approval still pending") ||
+                error.includes("Banking-App frei") ||
+                error.includes("3076") || // DECOUPLED_TAN_NOT_YET_APPROVED
+                error.includes("3060"))); // DECOUPLED_TAN_PENDING
 
     // Check if TAN failed or was cancelled
-    const isTanFailed = isDecoupledTanFailed(bankAnswers) ||
-        (error && (
-            error.includes("cancelled") ||
-            error.includes("expired") ||
-            error.includes("abgebrochen") ||
-            error.includes("3077") ||  // DECOUPLED_TAN_CANCELLED
-            error.includes("3078")     // DECOUPLED_TAN_EXPIRED
-        ));
+    const isTanFailed =
+        isDecoupledTanFailed(bankAnswers) ||
+        (error &&
+            (error.includes("cancelled") ||
+                error.includes("expired") ||
+                error.includes("abgebrochen") ||
+                error.includes("3077") || // DECOUPLED_TAN_CANCELLED
+                error.includes("3078"))); // DECOUPLED_TAN_EXPIRED
 
     const handleDecoupledSubmit = () => {
         if (isPendingApproval) {
-            setRetryCount(prev => prev + 1);
+            setRetryCount((prev) => prev + 1);
         }
         onSubmitTan(); // Try to submit without TAN for decoupled methods
     };
@@ -65,15 +69,20 @@ export function TanChallenge({
                 // Decoupled TAN UI (app-based approval)
                 <div className="space-y-3">
                     <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-sm">
-                        <div className="font-medium text-blue-800">📱 App-Freigabe erforderlich</div>
+                        <div className="font-medium text-blue-800">
+                            📱 App-Freigabe erforderlich
+                        </div>
                         <div className="text-blue-700 mt-1">
-                            Bitte öffnen Sie Ihre Banking-App und geben Sie die Transaktion frei.
+                            Bitte öffnen Sie Ihre Banking-App und geben Sie die Transaktion
+                            frei.
                         </div>
                     </div>
 
                     {isPendingApproval && (
                         <div className="rounded-lg bg-orange-50 border border-orange-200 p-3 text-sm">
-                            <div className="font-medium text-orange-800">⏳ Warten auf Freigabe</div>
+                            <div className="font-medium text-orange-800">
+                                ⏳ Warten auf Freigabe
+                            </div>
                             <div className="text-orange-700 mt-1">
                                 {error}
                                 {retryCount > 0 && ` (Versuch ${retryCount})`}
@@ -83,9 +92,12 @@ export function TanChallenge({
 
                     {isTanFailed && (
                         <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm">
-                            <div className="font-medium text-red-800">❌ Freigabe fehlgeschlagen</div>
+                            <div className="font-medium text-red-800">
+                                ❌ Freigabe fehlgeschlagen
+                            </div>
                             <div className="text-red-700 mt-1">
-                                {error || "Die TAN-Freigabe wurde abgebrochen oder ist abgelaufen."}
+                                {error ||
+                                    "Die TAN-Freigabe wurde abgebrochen oder ist abgelaufen."}
                             </div>
                         </div>
                     )}
@@ -97,7 +109,11 @@ export function TanChallenge({
                             onClick={handleDecoupledSubmit}
                             disabled={busy}
                         >
-                            {busy ? "Prüfen..." : (isPendingApproval ? "Erneut prüfen" : "Freigabe prüfen")}
+                            {busy
+                                ? "Prüfen..."
+                                : isPendingApproval
+                                    ? "Erneut prüfen"
+                                    : "Freigabe prüfen"}
                         </button>
                         <button
                             type="button"
