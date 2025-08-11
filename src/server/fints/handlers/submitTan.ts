@@ -1,8 +1,3 @@
-import {
-	isDecoupledTanPending,
-	isDecoupledTanFailed,
-	isTransactionSuccess,
-} from "../../../client/utils/fintsUtils";
 import type { Session } from "../types";
 
 export async function handleSubmitTan(
