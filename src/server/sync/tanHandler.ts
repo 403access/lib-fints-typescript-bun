@@ -103,14 +103,33 @@ export async function handlePushTanWithPolling<T>(
 					const bankAnswers = (result as any).bankAnswers;
 					console.log("🔍 Bank response codes:", bankAnswers?.map((a: any) => `${a.code}: ${a.text}`));
 					
-					// Check for pending codes that indicate we should continue polling
-					if (bankAnswers?.some((answer: any) => 
-						answer.code === 3956 || // "Starke Kundenauthentifizierung noch ausstehend"
+					// Check for completion codes first (order executed, device trusted, etc.)
+					const hasCompletionCode = bankAnswers?.some((answer: any) => 
+						answer.code === 20 || // "Der Auftrag wurde ausgeführt" / "Auftrag ausgeführt"
+						answer.text?.includes("Auftrag wurde ausgeführt") ||
+						answer.text?.includes("ausgeführt") ||
+						answer.text?.includes("erfolgreich") ||
+						answer.text?.includes("completed") ||
+						answer.text?.includes("executed")
+					);
+					
+					// Check for specific pending authentication codes (not general warnings)
+					const hasPendingAuthCode = bankAnswers?.some((answer: any) => 
+						answer.code === 3956 || // "Starke Kundenauthentifizierung noch ausstehend" - SPECIFIC pending auth
 						answer.code === 3076 || // DECOUPLED_TAN_NOT_YET_APPROVED
-						answer.code === 3060 || // DECOUPLED_TAN_PENDING
 						answer.text?.includes("noch ausstehend") ||
-						answer.text?.includes("noch nicht freigegeben")
-					)) {
+						answer.text?.includes("noch nicht freigegeben") ||
+						answer.text?.includes("nicht freigegeben")
+					);
+					
+					// If we have completion codes and no specific pending auth codes, we're done
+					if (hasCompletionCode && !hasPendingAuthCode) {
+						console.log("✅ PushTAN approved! Transaction completed successfully.");
+						return result; // Return the successful result
+					}
+					
+					// Only continue polling if we have specific pending authentication codes
+					if (hasPendingAuthCode) {
 						console.log(`⏳ Still waiting for pushTAN approval (attempt ${attempt}/${maxAttempts})...`);
 						
 						// Wait before next HKTAN status request
@@ -118,6 +137,12 @@ export async function handlePushTanWithPolling<T>(
 							await new Promise((resolve) => setTimeout(resolve, intervalMs));
 						}
 						continue;
+					}
+					
+					// If we have neither completion nor pending codes, but a successful response, assume completion
+					if ((result as any).success && !hasPendingAuthCode) {
+						console.log("✅ PushTAN polling completed (no pending codes detected).");
+						return result;
 					}
 				}
 
