@@ -13,8 +13,8 @@ export const FINTS_RESPONSE_CODES = {
 	// Information codes
 	STRONG_AUTHENTICATION_REQUIRED: 3060, // Decoupled TAN process required
 	TAN_REQUIRED: 3920, // Traditional TAN required
-	TAN_INVALID: 3955,
-	TAN_EXPIRED: 3956,
+	TAN_REQUEST_RECEIVED: 3955, // "Auftrag empfangen - Bitte Auftrag in Ihrer App freigeben"
+	TAN_AUTHENTICATION_PENDING: 3956, // "Starke Kundenauthentifizierung noch ausstehend" - PENDING status, not error!
 
 	// Error codes
 	INVALID_PIN: 9340,
@@ -27,6 +27,7 @@ export const FINTS_RESPONSE_CODES = {
 
 	// Decoupled/App-based TAN codes (Process 4/S)
 	DECOUPLED_TAN_PENDING: 3060, // Same as STRONG_AUTHENTICATION_REQUIRED - decoupled required
+	DECOUPLED_TAN_AUTHENTICATION_PENDING: 3956, // "Starke Kundenauthentifizierung noch ausstehend" - waiting for approval
 	DECOUPLED_TAN_NOT_YET_APPROVED: 3076, // Waiting for approval in app
 	DECOUPLED_TAN_CANCELLED: 3077, // User cancelled in app
 	DECOUPLED_TAN_EXPIRED: 3078, // TAN expired in app
@@ -49,24 +50,35 @@ export function hasBankAnswerCode(
 /**
  * Check if the response indicates a decoupled TAN method is pending approval
  * This checks for the "waiting" status codes while the user approves in the app
+ * 
+ * Note: Code 3060 can mean different things:
+ * - "Starke Kundenauthentifizierung erforderlich" (strong auth required) - PENDING
+ * - "Bitte beachten Sie die enthaltenen Warnungen/Hinweise" (general warnings) - NOT PENDING
  */
 export function isDecoupledTanPending(
 	bankAnswers: BankAnswer[] | undefined,
 ): boolean {
-	return (
-		hasBankAnswerCode(
-			bankAnswers,
-			FINTS_RESPONSE_CODES.DECOUPLED_TAN_PENDING,
-		) ||
-		hasBankAnswerCode(
-			bankAnswers,
-			FINTS_RESPONSE_CODES.DECOUPLED_TAN_NOT_YET_APPROVED,
-		) ||
-		hasBankAnswerCode(
-			bankAnswers,
-			FINTS_RESPONSE_CODES.DECOUPLED_TAN_SENT_TO_DEVICE,
-		)
+	if (!bankAnswers) return false;
+	
+	// Check for explicit pending authentication codes
+	const hasExplicitPendingCode = 
+		hasBankAnswerCode(bankAnswers, FINTS_RESPONSE_CODES.DECOUPLED_TAN_AUTHENTICATION_PENDING) || // 3956
+		hasBankAnswerCode(bankAnswers, FINTS_RESPONSE_CODES.DECOUPLED_TAN_NOT_YET_APPROVED) || // 3076
+		hasBankAnswerCode(bankAnswers, FINTS_RESPONSE_CODES.DECOUPLED_TAN_SENT_TO_DEVICE); // 3072
+	
+	if (hasExplicitPendingCode) {
+		return true;
+	}
+	
+	// For code 3060, check the context - only consider pending if the text indicates strong auth
+	const code3060Answers = bankAnswers.filter(answer => answer.code === 3060);
+	const isPendingAuth3060 = code3060Answers.some(answer => 
+		answer.text?.includes("Starke Kundenauthentifizierung") ||
+		answer.text?.includes("strong authentication") ||
+		answer.text?.includes("erforderlich") // "required"
 	);
+	
+	return isPendingAuth3060;
 }
 
 /**
@@ -124,10 +136,10 @@ export function isTanRequired(bankAnswers: BankAnswer[] | undefined): boolean {
 }
 
 /**
- * Check if the response indicates TAN is invalid
+ * Check if the response indicates TAN request was received (3955)
  */
-export function isTanInvalid(bankAnswers: BankAnswer[] | undefined): boolean {
-	return hasBankAnswerCode(bankAnswers, FINTS_RESPONSE_CODES.TAN_INVALID);
+export function isTanRequestReceived(bankAnswers: BankAnswer[] | undefined): boolean {
+	return hasBankAnswerCode(bankAnswers, FINTS_RESPONSE_CODES.TAN_REQUEST_RECEIVED);
 }
 
 /**
@@ -191,8 +203,8 @@ export function getBankErrorMessage(
 		return "Ihr Zugang ist gesperrt. Bitte wenden Sie sich an Ihre Bank.";
 	}
 
-	if (isTanInvalid(bankAnswers)) {
-		return "Ungültige TAN. Bitte versuchen Sie es erneut.";
+	if (isTanRequestReceived(bankAnswers)) {
+		return "TAN-Anfrage wurde empfangen. Bitte geben Sie die Transaktion in Ihrer Banking-App frei.";
 	}
 
 	// Return the first non-success message

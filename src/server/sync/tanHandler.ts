@@ -8,7 +8,12 @@
  */
 
 import type { BankAnswer } from "../../client/types/fints";
-import { isDecoupledTanChallenge } from "../../client/utils/fintsUtils";
+import { 
+	isDecoupledTanChallenge, 
+	FINTS_RESPONSE_CODES,
+	isDecoupledTanPending,
+	isTransactionSuccess 
+} from "../../client/utils/fintsUtils";
 import type {
 	PushTanPollingOptions,
 	TanCallback,
@@ -103,24 +108,11 @@ export async function handlePushTanWithPolling<T>(
 					const bankAnswers = (result as any).bankAnswers;
 					console.log("🔍 Bank response codes:", bankAnswers?.map((a: any) => `${a.code}: ${a.text}`));
 					
-					// Check for completion codes first (order executed, device trusted, etc.)
-					const hasCompletionCode = bankAnswers?.some((answer: any) => 
-						answer.code === 20 || // "Der Auftrag wurde ausgeführt" / "Auftrag ausgeführt"
-						answer.text?.includes("Auftrag wurde ausgeführt") ||
-						answer.text?.includes("ausgeführt") ||
-						answer.text?.includes("erfolgreich") ||
-						answer.text?.includes("completed") ||
-						answer.text?.includes("executed")
-					);
+					// Check for completion using utility functions
+					const hasCompletionCode = isTransactionSuccess(bankAnswers);
 					
-					// Check for specific pending authentication codes (not general warnings)
-					const hasPendingAuthCode = bankAnswers?.some((answer: any) => 
-						answer.code === 3956 || // "Starke Kundenauthentifizierung noch ausstehend" - SPECIFIC pending auth
-						answer.code === 3076 || // DECOUPLED_TAN_NOT_YET_APPROVED
-						answer.text?.includes("noch ausstehend") ||
-						answer.text?.includes("noch nicht freigegeben") ||
-						answer.text?.includes("nicht freigegeben")
-					);
+					// Check for specific pending authentication codes using utility functions
+					const hasPendingAuthCode = isDecoupledTanPending(bankAnswers);
 					
 					// If we have completion codes and no specific pending auth codes, we're done
 					if (hasCompletionCode && !hasPendingAuthCode) {
@@ -165,8 +157,10 @@ export async function handlePushTanWithPolling<T>(
 					errorMessage.includes("not yet approved") ||
 					errorMessage.includes("pending approval") ||
 					errorMessage.includes("TAN approval still pending") ||
-					errorMessage.includes("3076") || // DECOUPLED_TAN_NOT_YET_APPROVED
-					errorMessage.includes("3060") // DECOUPLED_TAN_PENDING/STRONG_AUTH_REQUIRED
+					errorMessage.includes("noch ausstehend") || // "still pending"
+					errorMessage.includes(FINTS_RESPONSE_CODES.DECOUPLED_TAN_AUTHENTICATION_PENDING.toString()) || // 3956
+					errorMessage.includes(FINTS_RESPONSE_CODES.DECOUPLED_TAN_NOT_YET_APPROVED.toString()) || // 3076
+					errorMessage.includes(FINTS_RESPONSE_CODES.DECOUPLED_TAN_PENDING.toString()) // 3060
 				) {
 					console.log(
 						`⏳ Still waiting for pushTAN approval (attempt ${attempt}/${maxAttempts})...`,
@@ -181,8 +175,8 @@ export async function handlePushTanWithPolling<T>(
 
 				// Check for explicit failure codes
 				if (
-					errorMessage.includes("3077") || // DECOUPLED_TAN_CANCELLED
-					errorMessage.includes("3078") || // DECOUPLED_TAN_EXPIRED
+					errorMessage.includes(FINTS_RESPONSE_CODES.DECOUPLED_TAN_CANCELLED.toString()) || // 3077
+					errorMessage.includes(FINTS_RESPONSE_CODES.DECOUPLED_TAN_EXPIRED.toString()) || // 3078
 					errorMessage.includes("abgebrochen") ||
 					errorMessage.includes("cancelled")
 				) {
