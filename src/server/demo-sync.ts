@@ -33,7 +33,7 @@ async function demonstrateSync() {
 		console.log("   export FINTS_PRODUCT_ID='your-registered-product-id'");
 		console.log("   export FINTS_USER_ID='your-user-id'");
 		console.log("   export FINTS_PIN='your-pin'");
-		process.exit(1);
+		console.log("\n🔄 Continuing anyway for demonstration purposes...\n");
 	}
 
 	// Create TAN callback for interactive authentication
@@ -64,7 +64,12 @@ async function demonstrateSync() {
 			if (result.data?.accounts) {
 				console.log("\n🏦 Account Details:");
 				result.data.accounts.forEach((account, index) => {
-					console.log(`   ${index + 1}. Account: ${account.accountNumber}`);
+					const hasStatements =
+						result.data?.statements?.[account.accountNumber];
+					const statusIcon = hasStatements ? "✅" : "❌";
+					console.log(
+						`   ${statusIcon} ${index + 1}. Account: ${account.accountNumber}`,
+					);
 					if (account.iban) console.log(`      IBAN: ${account.iban}`);
 					if (account.currency)
 						console.log(`      Currency: ${account.currency}`);
@@ -95,12 +100,31 @@ async function demonstrateSync() {
 			console.log("=========================================");
 			console.log(`Error: ${result.error}`);
 
-			// Still show banking info if available
+			// Still show banking info if available for debugging
 			if (result.bankingInformation) {
 				console.log(
 					`\nBank connection was established (System ID: ${result.bankingInformation.systemId})`,
 				);
+
+				// Show available accounts even if statements failed
+				const accounts = result.bankingInformation.upd?.bankAccounts || [];
+				if (accounts.length > 0) {
+					console.log(`\n🏦 Available Accounts (${accounts.length}):`);
+					accounts.forEach((account, index) => {
+						console.log(`   ${index + 1}. Account: ${account.accountNumber}`);
+						if (account.iban) console.log(`      IBAN: ${account.iban}`);
+						if (account.currency)
+							console.log(`      Currency: ${account.currency}`);
+					});
+				}
 			}
+
+			console.log(
+				"\n💡 Some accounts might not support statement retrieval or require different authentication.",
+			);
+			console.log(
+				"   This is normal - not all account types support all operations.",
+			);
 		}
 	} catch (error) {
 		console.error("\n💥 EXCEPTION: An unexpected error occurred");

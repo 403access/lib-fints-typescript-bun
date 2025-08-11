@@ -262,35 +262,68 @@ export async function syncAllStatements(
 				}
 			} catch (error) {
 				const errorMsg = error instanceof Error ? error.message : String(error);
-				errors.push(`Error for account ${account.accountNumber}: ${errorMsg}`);
+
+				// Categorize the error to provide better feedback
+				if (errorMsg.includes("does not support business transaction")) {
+					console.log(
+						`⚠️  Account ${account.accountNumber} does not support statement retrieval (account type restriction)`,
+					);
+					errors.push(
+						`Account ${account.accountNumber} does not support statement retrieval (account type restriction)`,
+					);
+				} else if (errorMsg.includes("Expected TextToNextSubTag token")) {
+					console.log(
+						`⚠️  Account ${account.accountNumber} has parsing issues (bank data format problem)`,
+					);
+					errors.push(
+						`Account ${account.accountNumber} has data format issues (bank response parsing failed)`,
+					);
+				} else {
+					console.log(
+						`❌ Account ${account.accountNumber} failed: ${errorMsg}`,
+					);
+					errors.push(`Account ${account.accountNumber}: ${errorMsg}`);
+				}
 			}
 		}
 
-		// Return results
-		if (Object.keys(statements).length === 0) {
+		// Return results - treat partial success as success
+		const hasAnyStatements = Object.keys(statements).length > 0;
+		const hasErrors = errors.length > 0;
+
+		if (hasAnyStatements) {
+			// We got at least some statements - this is a success
+			return {
+				success: true,
+				data: {
+					statements,
+					accounts: targetAccounts.map((acc) => ({
+						accountNumber: acc.accountNumber,
+						iban: acc.iban,
+						currency: acc.currency,
+					})),
+				},
+				bankingInformation: bankingInfo,
+				...(hasErrors && {
+					error: `Partial success. Some accounts failed: ${errors.join("; ")}`,
+				}),
+			};
+		} else if (hasErrors) {
+			// No statements but we have specific errors - show them
+			return {
+				success: false,
+				error: `All accounts failed: ${errors.join("; ")}`,
+				bankingInformation: bankingInfo,
+			};
+		} else {
+			// No statements and no specific errors
 			return {
 				success: false,
 				error:
-					errors.length > 0 ? errors.join("; ") : "No statements retrieved",
+					"No statements could be retrieved from any account. This might be due to account type restrictions or missing permissions.",
 				bankingInformation: bankingInfo,
 			};
 		}
-
-		return {
-			success: true,
-			data: {
-				statements,
-				accounts: targetAccounts.map((acc) => ({
-					accountNumber: acc.accountNumber,
-					iban: acc.iban,
-					currency: acc.currency,
-				})),
-			},
-			bankingInformation: bankingInfo,
-			...(errors.length > 0 && {
-				error: `Partial success. Errors: ${errors.join("; ")}`,
-			}),
-		};
 	} catch (error) {
 		const errorMessage = error instanceof Error ? error.message : String(error);
 		return {
