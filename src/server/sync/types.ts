@@ -3,9 +3,9 @@
  */
 
 import type {
-	FinTSForm,
 	BankAnswer,
 	BankingInformation,
+	FinTSForm,
 } from "../../client/types/fints";
 
 export type SyncCredentials = FinTSForm;

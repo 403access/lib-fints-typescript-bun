@@ -12,11 +12,11 @@ import { FinTSClient, FinTSConfig } from "lib-fints";
 import type { BankAnswer } from "../../client/types/fints";
 import { handlePushTanWithPolling } from "./tanHandler";
 import type {
-	SyncCredentials,
 	AccountStatementsOptions,
-	TanCallback,
-	SyncResult,
 	StatementResponse,
+	SyncCredentials,
+	SyncResult,
+	TanCallback,
 } from "./types";
 
 /**

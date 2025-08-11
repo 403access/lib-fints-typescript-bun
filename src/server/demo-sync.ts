@@ -4,10 +4,10 @@
  */
 
 import {
-	syncAllStatements,
 	createCommandLineTanCallback,
-	validateCredentials,
 	type SyncCredentials,
+	syncAllStatements,
+	validateCredentials,
 } from "./sync";
 
 // Example credentials (replace with real values)
