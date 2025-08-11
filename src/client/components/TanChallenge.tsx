@@ -53,7 +53,9 @@ export function TanChallenge({
             setRetryCount(prev => prev + 1);
         }
         onSubmitTan(); // Try to submit without TAN for decoupled methods
-    }; return (
+    };
+
+    return (
         <div className="space-y-3">
             <div className="text-sm text-slate-700 whitespace-pre-wrap">
                 {tanChallenge}
