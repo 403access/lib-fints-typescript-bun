@@ -6,7 +6,7 @@
   store in production.
 */
 
-import { randomUUID } from "crypto";
+import { randomUUID } from "node:crypto";
 import { FinTSClient, FinTSConfig } from "lib-fints";
 
 type Session = {
