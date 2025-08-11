@@ -44,7 +44,6 @@ export async function syncAllStatements(
 			credentials.userId,
 			credentials.pin,
 		);
-		console.log("FinTS configuration created:", config);
 
 		// Initialize client
 		client = new FinTSClient(config);
