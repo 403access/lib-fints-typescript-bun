@@ -44,13 +44,20 @@ export async function syncAllStatements(
 			credentials.userId,
 			credentials.pin,
 		);
+		console.log("FinTS configuration created:", config);
 
 		// Initialize client
 		client = new FinTSClient(config);
 
 		// Perform initial synchronization with TAN handling
-		const syncRes = await client.synchronize();
+		let syncRes = await client.synchronize();
 		console.log("Initial synchronization result:", syncRes);
+
+		const res = await client.selectTanMethod(923);
+		console.log("Selected TAN method:", res);
+
+		syncRes = await client.synchronize();
+		console.log("Post-TAN synchronization result:", syncRes);
 
 		if (syncRes.requiresTan) {
 			if (!tanCallback) {
