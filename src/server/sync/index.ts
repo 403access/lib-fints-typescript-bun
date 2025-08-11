@@ -9,19 +9,19 @@
 export {
 	syncAllStatements,
 	syncAccountStatements,
-} from "./sync.js";
+} from "./sync";
 
 // TAN handling utilities
-export { handlePushTanWithPolling } from "./tanHandler.js";
+export { handlePushTanWithPolling } from "./tanHandler";
 
 // Pre-built TAN callback implementations
 export {
 	createCommandLineTanCallback,
 	createAutomaticPushTanCallback,
-} from "./tanCallbacks.js";
+} from "./tanCallbacks";
 
 // Validation utilities
-export { validateCredentials } from "./validation.js";
+export { validateCredentials } from "./validation";
 
 // Type definitions
-export type * from "./types.js";
+export type * from "./types";

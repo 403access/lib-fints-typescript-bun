@@ -15,7 +15,7 @@
  * - Can be hard to debug
  */
 
-import type { BankAnswer } from "../../client/types/fints.js";
+import type { BankAnswer } from "../../client/types/fints";
 
 // Simplified reactive stream implementation (normally you'd use RxJS)
 interface Observer<T> {

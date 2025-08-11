@@ -8,7 +8,7 @@ import {
 	createCommandLineTanCallback,
 	validateCredentials,
 	type SyncCredentials,
-} from "./sync.js";
+} from "./sync";
 
 // Example credentials (replace with real values)
 const credentials: SyncCredentials = {

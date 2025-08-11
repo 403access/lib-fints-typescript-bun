@@ -2,7 +2,7 @@
  * Validation utilities for FinTS sync credentials
  */
 
-import type { SyncCredentials } from "./types.js";
+import type { SyncCredentials } from "./types";
 
 /**
  * Helper function to validate credentials

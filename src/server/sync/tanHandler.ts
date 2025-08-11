@@ -2,13 +2,13 @@
  * TAN authentication handler with push TAN polling support
  */
 
-import { isDecoupledTanChallenge } from "../../client/utils/fintsUtils.js";
-import type { BankAnswer } from "../../client/types/fints.js";
+import { isDecoupledTanChallenge } from "../../client/utils/fintsUtils";
+import type { BankAnswer } from "../../client/types/fints";
 import type {
 	TanCallback,
 	TanCallbackResult,
 	PushTanPollingOptions,
-} from "../types.js";
+} from "../types";
 
 /**
  * Handles push TAN authentication with polling for user approval

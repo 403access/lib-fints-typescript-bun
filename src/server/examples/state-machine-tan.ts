@@ -13,7 +13,7 @@
  * - Learning curve for state machine concepts
  */
 
-import type { BankAnswer } from "../../client/types/fints.js";
+import type { BankAnswer } from "../../client/types/fints";
 
 type TanState =
 	| "idle"

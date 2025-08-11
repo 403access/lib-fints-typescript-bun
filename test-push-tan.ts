@@ -3,8 +3,8 @@
  * Quick test to verify push TAN detection functionality
  */
 
-import { isDecoupledTanChallenge } from "./src/client/utils/fintsUtils.js";
-import { createAutomaticPushTanCallback } from "./src/server/sync/sync.js";
+import { isDecoupledTanChallenge } from "./src/client/utils/fintsUtils";
+import { createAutomaticPushTanCallback } from "./src/server/sync/sync";
 
 // Test bank answers that simulate different TAN scenarios
 const pushTanAnswers = [

@@ -6,7 +6,7 @@ import type {
 	FinTSForm,
 	BankAnswer,
 	BankingInformation,
-} from "../../client/types/fints.js";
+} from "../../client/types/fints";
 
 export type SyncCredentials = FinTSForm;
 

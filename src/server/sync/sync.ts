@@ -9,15 +9,15 @@
  */
 
 import { FinTSClient, FinTSConfig } from "lib-fints";
-import type { BankAnswer } from "../../client/types/fints.js";
-import { handlePushTanWithPolling } from "./tanHandler.js";
+import type { BankAnswer } from "../../client/types/fints";
+import { handlePushTanWithPolling } from "./tanHandler";
 import type {
 	SyncCredentials,
 	AccountStatementsOptions,
 	TanCallback,
 	SyncResult,
 	StatementResponse,
-} from "./types.js";
+} from "./types";
 
 /**
  * Synchronously retrieve all statements from banking accounts with TAN support
@@ -282,12 +282,12 @@ export async function syncAccountStatements(
 }
 
 // Re-export from other modules for convenience
-export { validateCredentials } from "./validation.js";
+export { validateCredentials } from "./validation";
 export {
 	createCommandLineTanCallback,
 	createAutomaticPushTanCallback,
-} from "./tanCallbacks.js";
-export { handlePushTanWithPolling } from "./tanHandler.js";
+} from "./tanCallbacks";
+export { handlePushTanWithPolling } from "./tanHandler";
 
 // Re-export types
-export type * from "./types.js";
+export type * from "./types";

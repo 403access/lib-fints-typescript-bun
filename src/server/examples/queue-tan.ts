@@ -13,7 +13,7 @@
  * - Memory usage with large queues
  */
 
-import type { BankAnswer } from "../../client/types/fints.js";
+import type { BankAnswer } from "../../client/types/fints";
 
 interface TanRequest {
 	id: string;

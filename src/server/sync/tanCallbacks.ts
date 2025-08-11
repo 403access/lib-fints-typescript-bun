@@ -2,9 +2,9 @@
  * Pre-built TAN callback implementations for different use cases
  */
 
-import { isDecoupledTanChallenge } from "../../client/utils/fintsUtils.js";
-import type { BankAnswer } from "../../client/types/fints.js";
-import type { TanCallback, TanCallbackResult } from "../types.js";
+import { isDecoupledTanChallenge } from "../../client/utils/fintsUtils";
+import type { BankAnswer } from "../../client/types/fints";
+import type { TanCallback, TanCallbackResult } from "../types";
 
 /**
  * Creates a simple command-line TAN callback for interactive authentication
