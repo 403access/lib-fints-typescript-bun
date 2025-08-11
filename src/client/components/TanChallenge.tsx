@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { isDecoupledTanChallenge, isDecoupledTanPending } from "../utils/fintsUtils";
 import type { BankAnswer } from "../types/fints";
+import { isDecoupledTanChallenge, isDecoupledTanPending } from "../utils/fintsUtils";
 
 export interface TanChallengeProps {
     tanChallenge: string;

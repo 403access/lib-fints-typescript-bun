@@ -14,7 +14,6 @@ import { Section } from "./components/Section";
 import { TanChallenge } from "./components/TanChallenge";
 import { TanSelection } from "./components/TanSelection";
 import { useFinTSActions } from "./hooks/useFinTSActions";
-import { getBankErrorMessage, isDecoupledTanPending } from "./utils/fintsUtils";
 import type {
     BalanceData,
     BankAnswer,
@@ -22,6 +21,7 @@ import type {
     FinTSForm,
     StatementsData,
 } from "./types/fints";
+import { getBankErrorMessage, isDecoupledTanPending } from "./utils/fintsUtils";
 
 export default function FinTSWizard() {
     const [busy, setBusy] = useState(false);
