@@ -1,5 +1,6 @@
-import { serve, sql } from "bun";
+import { serve } from "bun";
 import homepage from "../client/App.html";
+import { handleFinTSRequest } from "./route/fints";
 
 if (process.env.FINTS_PRODUCT_REGISTER_ID === undefined) {
 	console.error(
@@ -15,6 +16,12 @@ const server = serve({
 		// ** HTML imports **
 		// Bundle & route App.html to "/". This uses HTMLRewriter to scan the HTML for `<script>` and `<link>` tags, run's Bun's JavaScript & CSS bundler on them, transpiles any TypeScript, JSX, and TSX, downlevels CSS with Bun's CSS parser and serves the result.
 		"/": homepage,
+
+		"/api/fints": {
+			async POST(req) {
+				return await handleFinTSRequest(req);
+			},
+		},
 	},
 
 	// Enable development mode for:

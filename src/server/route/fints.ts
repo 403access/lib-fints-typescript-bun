@@ -1,113 +1,245 @@
-// ---------------------------------------------------------------------------
-// Example Next.js App Router backend (app/api/fints/route.ts)
-// ---------------------------------------------------------------------------
-
 /*
-  Place this file at: /app/api/fints/route.ts (Next.js 13+ App Router)
-  Install dependencies: `npm i lib-fints` (or `pnpm add lib-fints`)
-
+  FinTS API handler for Bun server
+  
   This handler keeps a session per client using a signed cookie. For a quick
   demo it stores the FinTS client & config in-memory. Replace with a proper
   store in production.
 */
 
-// ----- BEGIN: /app/api/fints/route.ts -----
+import { randomUUID } from "crypto";
+import { FinTSClient, FinTSConfig } from "lib-fints";
 
-// import { NextRequest, NextResponse } from "next/server";
-// import { cookies } from "next/headers";
-// import { FinTSClient, FinTSConfig } from "lib-fints";
-// import { randomUUID } from "crypto";
+type Session = {
+	client: FinTSClient | null;
+	config: FinTSConfig | null;
+	pending?: { op: "sync" | "balance" | "statements"; accountNumber?: string };
+};
 
-// type Session = {
-//   client: any; // FinTSClient
-//   config: any; // FinTSConfig
-//   pending?: { op: "sync" | "balance" | "statements"; accountNumber?: string };
-// };
-// const sessions = new Map<string, Session>();
+const sessions = new Map<string, Session>();
 
-// function getOrCreateSession(req: NextRequest): { id: string; session: Session } {
-//   const jar = cookies();
-//   let sid = jar.get("fints_sid")?.value;
-//   if (!sid || !sessions.has(sid)) {
-//     sid = randomUUID();
-//     jar.set("fints_sid", sid, { httpOnly: true, sameSite: "lax", secure: true, path: "/" });
-//     sessions.set(sid, { client: null, config: null });
-//   }
-//   const session = sessions.get(sid)!;
-//   return { id: sid, session };
-// }
+function getOrCreateSession(req: Request): {
+	id: string;
+	session: Session;
+	setCookie?: string;
+} {
+	const cookieHeader = req.headers.get("Cookie");
+	const cookies = cookieHeader
+		? Object.fromEntries(
+				cookieHeader
+					.split("; ")
+					.map((c) => c.split("=").map(decodeURIComponent)),
+			)
+		: {};
 
-// export async function POST(req: NextRequest) {
-//   try {
-//     const { id, session } = getOrCreateSession(req);
-//     const { action, payload } = await req.json();
+	let sid = cookies.fints_sid;
+	let setCookie: string | undefined;
 
-//     if (action === "startSession") {
-//       const { productId, productVersion, bankUrl, bankId, userId, pin } = payload;
-//       const config = FinTSConfig.forFirstTimeUse(productId, productVersion, bankUrl, bankId, userId, pin);
-//       const client = new FinTSClient(config);
-//       session.client = client;
-//       session.config = config;
-//       return NextResponse.json({ bankingInformation: null });
-//     }
+	if (!sid || !sessions.has(sid)) {
+		sid = randomUUID();
+		setCookie = `fints_sid=${encodeURIComponent(sid)}; HttpOnly; SameSite=Lax; Secure; Path=/`;
+		sessions.set(sid, { client: null, config: null });
+	}
 
-//     if (!session.client) return NextResponse.json({ error: "No active session" }, { status: 400 });
+	const session = sessions.get(sid);
+	if (!session) {
+		throw new Error("Session not found");
+	}
+	return { id: sid, session, setCookie };
+}
 
-//     if (action === "selectTan") {
-//       const { tanMethodId, tanMediaName } = payload || {};
-//       if (tanMethodId) session.client.selectTanMethod(Number(tanMethodId));
-//       if (tanMediaName) session.client.selectTanMedia(tanMediaName);
-//       return NextResponse.json({ bankingInformation: session.config.bankingInformation });
-//     }
+export async function handleFinTSRequest(req: Request): Promise<Response> {
+	try {
+		const { session, setCookie } = getOrCreateSession(req);
+		const { action, payload } = await req.json();
 
-//     if (action === "synchronize") {
-//       const res = await session.client.synchronize();
-//       if (res.requiresTan) {
-//         session.pending = { op: "sync" };
-//         return NextResponse.json(res);
-//       }
-//       return NextResponse.json({ ...res, data: { bankingInformation: session.config.bankingInformation } });
-//     }
+		const headers: HeadersInit = {
+			"Content-Type": "application/json",
+		};
 
-//     if (action === "getAccountBalance") {
-//       const { accountNumber } = payload || {};
-//       const res = await session.client.getAccountBalance(accountNumber);
-//       if (res.requiresTan) {
-//         session.pending = { op: "balance", accountNumber };
-//         return NextResponse.json(res);
-//       }
-//       return NextResponse.json(res);
-//     }
+		if (setCookie) {
+			headers["Set-Cookie"] = setCookie;
+		}
 
-//     if (action === "getAccountStatements") {
-//       const { accountNumber } = payload || {};
-//       const res = await session.client.getAccountStatements(accountNumber);
-//       if (res.requiresTan) {
-//         session.pending = { op: "statements", accountNumber };
-//         return NextResponse.json(res);
-//       }
-//       return NextResponse.json(res);
-//     }
+		if (action === "startSession") {
+			const { productId, productVersion, bankUrl, bankId, userId, pin } =
+				payload;
 
-//     if (action === "submitTan") {
-//       const { tan, tanReference, op } = payload || {};
-//       if (!session.pending || session.pending.op !== op) {
-//         return NextResponse.json({ error: "No pending TAN op" }, { status: 400 });
-//       }
-//       let res;
-//       if (op === "sync") res = await session.client.synchronizeWithTan(tanReference, tan);
-//       if (op === "balance") res = await session.client.getAccountBalanceWithTan(session.pending.accountNumber, tanReference, tan);
-//       if (op === "statements") res = await session.client.getAccountStatementsWithTan(session.pending.accountNumber, tanReference, tan);
-//       session.pending = undefined;
-//       return NextResponse.json(res);
-//     }
+			const config = FinTSConfig.forFirstTimeUse(
+				productId,
+				productVersion,
+				bankUrl,
+				bankId,
+				userId,
+				pin,
+			);
 
-//     return NextResponse.json({ error: "Unknown action" }, { status: 400 });
-//   } catch (err: any) {
-//     return NextResponse.json({ error: err?.message || String(err) }, { status: 500 });
-//   }
-// }
+			const client = new FinTSClient(config);
+			session.client = client;
+			session.config = config;
 
-// ----- END: /app/api/fints/route.ts -----
+			return new Response(JSON.stringify({ bankingInformation: null }), {
+				headers,
+			});
+		}
 
-// Tailwind: ensure your project has Tailwind configured, e.g., with `@tailwind base; @tailwind components; @tailwind utilities;` in your globals.
+		if (!session.client && action !== "startSession") {
+			return new Response(JSON.stringify({ error: "No active session" }), {
+				status: 400,
+				headers,
+			});
+		}
+
+		if (action === "selectTan") {
+			if (!session.client) {
+				return new Response(JSON.stringify({ error: "No active session" }), {
+					status: 400,
+					headers,
+				});
+			}
+
+			const { tanMethodId, tanMediaName } = payload || {};
+			if (tanMethodId) session.client.selectTanMethod(Number(tanMethodId));
+			if (tanMediaName) session.client.selectTanMedia(tanMediaName);
+
+			const bankingInformation = session.config?.bankingInformation || null;
+			return new Response(JSON.stringify({ bankingInformation }), { headers });
+		}
+
+		if (action === "synchronize") {
+			if (!session.client) {
+				return new Response(JSON.stringify({ error: "No active session" }), {
+					status: 400,
+					headers,
+				});
+			}
+
+			const res = await session.client.synchronize();
+			if (res.requiresTan) {
+				session.pending = { op: "sync" };
+				return new Response(JSON.stringify(res), { headers });
+			}
+
+			const bankingInformation = session.config?.bankingInformation;
+			if (!bankingInformation) {
+				throw new Error("Banking information not available");
+			}
+
+			const response = {
+				...res,
+				data: { bankingInformation },
+			};
+
+			return new Response(JSON.stringify(response), { headers });
+		}
+
+		if (action === "getAccountBalance") {
+			if (!session.client) {
+				return new Response(JSON.stringify({ error: "No active session" }), {
+					status: 400,
+					headers,
+				});
+			}
+
+			const { accountNumber } = payload || {};
+			const res = await session.client.getAccountBalance(accountNumber);
+			if (res.requiresTan) {
+				session.pending = { op: "balance", accountNumber };
+				return new Response(JSON.stringify(res), { headers });
+			}
+
+			return new Response(JSON.stringify(res), { headers });
+		}
+
+		if (action === "getAccountStatements") {
+			if (!session.client) {
+				return new Response(JSON.stringify({ error: "No active session" }), {
+					status: 400,
+					headers,
+				});
+			}
+
+			const { accountNumber } = payload || {};
+			const res = await session.client.getAccountStatements(accountNumber);
+			if (res.requiresTan) {
+				session.pending = { op: "statements", accountNumber };
+				return new Response(JSON.stringify(res), { headers });
+			}
+
+			return new Response(JSON.stringify(res), { headers });
+		}
+
+		if (action === "submitTan") {
+			if (!session.client) {
+				return new Response(JSON.stringify({ error: "No active session" }), {
+					status: 400,
+					headers,
+				});
+			}
+
+			const { tan, tanReference, op } = payload || {};
+			if (!session.pending || session.pending.op !== op) {
+				return new Response(JSON.stringify({ error: "No pending TAN op" }), {
+					status: 400,
+					headers,
+				});
+			}
+
+			let res: unknown;
+
+			if (op === "sync") {
+				res = await session.client.synchronizeWithTan(tanReference, tan);
+				// Add banking information to sync response
+				if (res && typeof res === "object" && "success" in res && res.success) {
+					const bankingInformation = session.config?.bankingInformation;
+					if (bankingInformation) {
+						(res as Record<string, unknown>).data = { bankingInformation };
+					}
+				}
+			} else if (op === "balance") {
+				const accountNumber = session.pending.accountNumber;
+				if (!accountNumber) {
+					return new Response(
+						JSON.stringify({
+							error: "No account number for balance operation",
+						}),
+						{ status: 400, headers },
+					);
+				}
+				res = await session.client.getAccountBalanceWithTan(tanReference, tan);
+			} else if (op === "statements") {
+				const accountNumber = session.pending.accountNumber;
+				if (!accountNumber) {
+					return new Response(
+						JSON.stringify({
+							error: "No account number for statements operation",
+						}),
+						{ status: 400, headers },
+					);
+				}
+				res = await session.client.getAccountStatementsWithTan(
+					tanReference,
+					tan,
+				);
+			} else {
+				return new Response(JSON.stringify({ error: "Invalid operation" }), {
+					status: 400,
+					headers,
+				});
+			}
+
+			session.pending = undefined;
+			return new Response(JSON.stringify(res), { headers });
+		}
+
+		return new Response(JSON.stringify({ error: "Unknown action" }), {
+			status: 400,
+			headers,
+		});
+	} catch (err: unknown) {
+		const errorMessage = err instanceof Error ? err.message : String(err);
+		return new Response(JSON.stringify({ error: errorMessage }), {
+			status: 500,
+			headers: { "Content-Type": "application/json" },
+		});
+	}
+}
