@@ -6,18 +6,18 @@
   store in production.
 */
 
-import { getOrCreateSession } from "./session";
-import type { FinTSRequest } from "./types";
 import {
-	handleStartSession,
-	handleSelectTan,
-	handleSynchronize,
 	handleGetAccountBalance,
 	handleGetAccountStatements,
 	handleGetAllBalances,
 	handleGetAllStatements,
+	handleSelectTan,
+	handleStartSession,
 	handleSubmitTan,
+	handleSynchronize,
 } from "./handlers/index";
+import { getOrCreateSession } from "./session";
+import type { FinTSRequest } from "./types";
 
 export async function handleFinTSRequest(req: Request): Promise<Response> {
 	try {
