@@ -1,8 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { default as Component } from "./App";
-// Optionally: import your app's CSS
-// import "./styles.css";
 
 if (process.env.PUBLIC_FINTS_PRODUCT_REGISTER_ID === undefined) {
   throw new Error(
