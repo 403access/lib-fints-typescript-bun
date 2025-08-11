@@ -1,5 +1,6 @@
 import type {
 	BalanceData,
+	BankAnswer,
 	BankingInformation,
 	FinTSForm,
 	FinTSResponse,
@@ -14,6 +15,7 @@ export function useFinTSActions() {
 			requiresTan?: boolean;
 			tanChallenge?: string;
 			tanReference?: string;
+			bankAnswers?: BankAnswer[];
 		}>({ action: "startSession", payload: form });
 		return res;
 	}

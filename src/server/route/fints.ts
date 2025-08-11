@@ -89,6 +89,7 @@ export async function handleFinTSRequest(req: Request): Promise<Response> {
 							requiresTan: true,
 							tanChallenge: syncRes.tanChallenge,
 							tanReference: syncRes.tanReference,
+							bankAnswers: syncRes.bankAnswers,
 						}),
 						{ headers },
 					);

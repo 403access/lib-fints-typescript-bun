@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { isDecoupledTanChallenge, isDecoupledTanPending } from "../utils/fintsUtils";
+import type { BankAnswer } from "../types/fints";
 
 export interface TanChallengeProps {
     tanChallenge: string;
@@ -8,6 +10,7 @@ export interface TanChallengeProps {
     onSubmitTan: () => void;
     onCancel: () => void;
     error?: string | null;
+    bankAnswers?: BankAnswer[];
 }
 
 export function TanChallenge({
@@ -18,29 +21,27 @@ export function TanChallenge({
     onSubmitTan,
     onCancel,
     error,
+    bankAnswers,
 }: TanChallengeProps) {
-    // Detect if this is a decoupled TAN (app-based approval)
-    const isDecoupledTan = tanChallenge.toLowerCase().includes("app") ||
-        tanChallenge.toLowerCase().includes("freigeben") ||
-        tanChallenge.toLowerCase().includes("approve");
+    // Use utility function to detect decoupled TAN based on response codes
+    const isDecoupledTan = isDecoupledTanChallenge(bankAnswers, tanChallenge);
 
     const [retryCount, setRetryCount] = useState(0);
 
-    // Check if the error indicates pending approval
-    const isPendingApproval = error && (
-        error.includes("noch nicht freigegeben") ||
-        error.includes("TAN approval still pending") ||
-        error.includes("Banking-App frei")
-    );
+    // Check if the error indicates pending approval using response codes
+    const isPendingApproval = isDecoupledTanPending(bankAnswers) ||
+        (error && (
+            error.includes("noch nicht freigegeben") ||
+            error.includes("TAN approval still pending") ||
+            error.includes("Banking-App frei")
+        ));
 
     const handleDecoupledSubmit = () => {
         if (isPendingApproval) {
             setRetryCount(prev => prev + 1);
         }
         onSubmitTan(); // Try to submit without TAN for decoupled methods
-    };
-
-    return (
+    }; return (
         <div className="space-y-3">
             <div className="text-sm text-slate-700 whitespace-pre-wrap">
                 {tanChallenge}

@@ -14,8 +14,10 @@ import { Section } from "./components/Section";
 import { TanChallenge } from "./components/TanChallenge";
 import { TanSelection } from "./components/TanSelection";
 import { useFinTSActions } from "./hooks/useFinTSActions";
+import { getBankErrorMessage, isDecoupledTanPending } from "./utils/fintsUtils";
 import type {
     BalanceData,
+    BankAnswer,
     BankingInformation,
     FinTSForm,
     StatementsData,
@@ -28,7 +30,7 @@ export default function FinTSWizard() {
 
     // Step 1: credentials & product details
     const [form, setForm] = useState<FinTSForm>({
-        productId: process.env.PUBLIC_FINTS_PRODUCT_REGISTER_ID!, // register at DK/FinTS
+        productId: process.env.PUBLIC_FINTS_PRODUCT_REGISTER_ID || "", // register at DK/FinTS
         productVersion: "1.0.0",
         bankUrl: "https://banking-bw4.s-fints-pt-bw.de/fints30",
         bankId: "60450050", // BLZ or Bank ID
@@ -64,6 +66,7 @@ export default function FinTSWizard() {
     const [tanChallenge, setTanChallenge] = useState<string | null>(null);
     const [tanReference, setTanReference] = useState<string | null>(null);
     const [tanInput, setTanInput] = useState("");
+    const [bankAnswers, setBankAnswers] = useState<BankAnswer[] | null>(null);
     const [pendingOp, setPendingOp] = useState<
         "sync" | "balance" | "statements" | null
     >(null);
@@ -81,6 +84,7 @@ export default function FinTSWizard() {
         setTanChallenge(null);
         setTanReference(null);
         setTanInput("");
+        setBankAnswers(null);
         setPendingOp(null);
     }
 
@@ -104,6 +108,7 @@ export default function FinTSWizard() {
             if (res.requiresTan) {
                 setTanChallenge(res.tanChallenge || "TAN required for initial connection");
                 setTanReference(res.tanReference || null);
+                setBankAnswers(res.bankAnswers || null);
                 setPendingOp("sync");
             }
         } catch (e: unknown) {
@@ -139,6 +144,7 @@ export default function FinTSWizard() {
             if (res.requiresTan) {
                 setTanChallenge(res.tanChallenge || "TAN required");
                 setTanReference(res.tanReference || null);
+                setBankAnswers(res.bankAnswers || null);
                 setPendingOp("sync");
             }
             if (res.success && res.data) {
@@ -162,6 +168,7 @@ export default function FinTSWizard() {
             if (res.requiresTan) {
                 setTanChallenge(res.tanChallenge || "TAN required");
                 setTanReference(res.tanReference || null);
+                setBankAnswers(res.bankAnswers || null);
                 setPendingOp("balance");
             }
             if (res.success && res.data) setBalance(res.data);
@@ -183,6 +190,7 @@ export default function FinTSWizard() {
             if (res.requiresTan) {
                 setTanChallenge(res.tanChallenge || "TAN required");
                 setTanReference(res.tanReference || null);
+                setBankAnswers(res.bankAnswers || null);
                 setPendingOp("statements");
             }
             if (res.success && res.data) setStatements(res.data);
@@ -199,10 +207,13 @@ export default function FinTSWizard() {
         setError(null);
         try {
             const res = await actions.submitTan(pendingOp, tanReference, tanInput);
-            if (!res.success)
-                throw new Error(
-                    res.bankAnswers?.map((b) => b.text).join("\n") || "TAN failed",
-                );
+            if (!res.success) {
+                // Use utility function to get user-friendly error message
+                const errorMessage = getBankErrorMessage(res.bankAnswers) ||
+                    res.bankAnswers?.map((b) => b.text).join("\n") ||
+                    "TAN failed";
+                throw new Error(errorMessage);
+            }
             if (pendingOp === "sync" && res.data && typeof res.data === "object" && "bankingInformation" in res.data) {
                 setBankingInformation(res.data.bankingInformation as BankingInformation);
             } else if (pendingOp === "balance" && res.data) {
@@ -214,8 +225,9 @@ export default function FinTSWizard() {
         } catch (e: unknown) {
             const errorMessage = e instanceof Error ? e.message : String(e);
 
-            // Check if this is a pending approval error (status 202)
-            if (errorMessage.includes("TAN approval still pending") ||
+            // Check if this is a pending approval error using response codes or text
+            if (isDecoupledTanPending(bankAnswers || undefined) ||
+                errorMessage.includes("TAN approval still pending") ||
                 errorMessage.includes("noch nicht freigegeben")) {
                 setError("Bitte geben Sie die Transaktion in Ihrer Banking-App frei und versuchen Sie es erneut.");
                 // Don't reset TAN state, keep the challenge active for retry
@@ -304,6 +316,7 @@ export default function FinTSWizard() {
                         tanInput={tanInput}
                         busy={busy}
                         error={error}
+                        bankAnswers={bankAnswers || undefined}
                         onTanInputChange={setTanInput}
                         onSubmitTan={submitTan}
                         onCancel={resetTan}
